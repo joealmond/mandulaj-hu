@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 /** Run Quartz with bounded retries for the external font service only. */
+import "./env.js"
 import { spawnSync } from "node:child_process"
 import { c } from "./lib.js"
 import { isTransientBuildFailure } from "./build-retry.js"

@@ -15,6 +15,7 @@
  *     single file, in the original head order so the cascade is preserved.
  *  6. Strips an invalid `aria-expanded` off the explorer container (upstream).
  */
+import "./env.js"
 import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
 import path from "node:path"
