@@ -101,10 +101,9 @@ place; the verification baseline is recorded in Git rather than copied here.
       email.** Use the existing Gmail privately for accounts and renewal
       notices, publish no email address on the site, and configure
       `mandulaj.hu` to reject both inbound mail and spoofed outbound mail.
-- [ ] **⚠ Find out which address your registrar (domdom) sends renewal notices
-      to, and change it to the existing Gmail if necessary.** Do this before
-      touching DNS; otherwise the domain could be lost through missed renewal
-      notices.
+- [x] **⚠ Verify the registrar renewal contact.** Domdom lists the existing
+      Gmail as the registered-owner contact for `mandulaj.hu`; no address
+      change is needed before the DNS cutover.
 - [ ] Update any other external account that still uses an `@mandulaj.hu`
       address to the existing Gmail.
 - [x] ~~Decide whether the seeded notes should stay published.~~ **Reverted** —
