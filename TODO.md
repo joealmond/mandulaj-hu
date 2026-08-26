@@ -79,8 +79,7 @@ place; the verification baseline is recorded in Git rather than copied here.
 - [x] **Remove remaining Quartz-template metadata.** Package ownership now
       points at József, mandulaj.hu, and the intended site repository; inherited
       upstream-only workflows and funding metadata are removed.
-- [ ] Add an `origin` remote while retaining `upstream` for Quartz updates. This
-      waits for the site repository to exist.
+- [x] Add an `origin` remote while retaining `upstream` for Quartz updates.
 - [x] **Tolerate transient font-service failures.** Quartz build retries up to
       twice only for recognized network/font-host failures; configuration,
       content, and other deterministic errors still fail immediately.
@@ -130,16 +129,12 @@ place; the verification baseline is recorded in Git rather than copied here.
 
 ## 3. Repository
 
-- [ ] **Choose the first-push history shape.** The current site repo has no
-      `origin` and has never been published, but 11 local manifest commits
-      contain the absolute vault path and private relative source paths. The
-      current manifest is sanitized. Before creating a public repo, either
-      squash/import a clean snapshot (recommended) or intentionally publish the
-      old metadata. Do not rewrite history after a public push without a
-      separate migration plan.
-- [ ] Create the public site repo and push
-      (`gh repo create mandulaj-hu --public --source=. --push`)
-- [ ] Confirm the repo name matches the one in `deploy/vault-publish.yml`
+- [x] **Choose the first-push history shape.** Published a clean root commit;
+      the old path-bearing history remains only on the local
+      `private/pre-public-history` branch and was never pushed.
+- [x] Create the public site repo and push
+      (`joealmond/mandulaj-hu`).
+- [x] Confirm the repo name matches the one in `deploy/vault-publish.yml`
       (currently `joealmond/mandulaj-hu`)
 
 ## 4. DNS cutover
