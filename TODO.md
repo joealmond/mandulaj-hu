@@ -125,12 +125,13 @@ place; the verification baseline is recorded in Git rather than copied here.
 - [x] Harden Turnstile verification — success **and** `action: "comment"` **and**
       an allowed hostname; fails closed on every error path. Tested locally
       against both the always-pass and always-fail test secrets.
-- [ ] **Deploy once with comments still hidden.** `TURNSTILE_SITE_KEY` unset
-      means the form never renders, so nothing can be submitted before the
-      secret exists. `npm run deploy`
+- [x] **Deploy once with comments still hidden.** Live at
+      `https://mandulaj-hu.jozsef-mandula.workers.dev` — 0 turnstile meta tags,
+      so the form never reveals itself and nothing can be submitted.
 - [ ] `wrangler secret put TURNSTILE_SECRET_KEY` — only possible after the
       Worker exists, which is why the deploy above comes first
-- [ ] `wrangler secret put VISITOR_SALT` (32+ random bytes)
+- [x] `wrangler secret put VISITOR_SALT` — 48 random bytes, set 2026-08-27.
+      Likes verified working in production: count persists and toggles.
 - [ ] Put the **site** key in `.env` as `TURNSTILE_SITE_KEY`, rebuild, deploy —
       this is what turns the comment form on
 - [ ] Post a real comment on the `*.workers.dev` URL and confirm it stores
