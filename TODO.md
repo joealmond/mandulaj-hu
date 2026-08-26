@@ -116,12 +116,12 @@ place; the verification baseline is recorded in Git rather than copied here.
 
 ## 2. Cloudflare account setup
 
-- [ ] `wrangler login`
-- [ ] `wrangler d1 create mandulaj`
-- [ ] Paste the returned `database_id` into `wrangler.jsonc`
+- [x] `wrangler login`
+- [x] `wrangler d1 create mandulaj`
+- [x] Paste the returned `database_id` into `wrangler.jsonc`
       (replaces `PLACEHOLDER_RUN_WRANGLER_D1_CREATE`)
-- [ ] `npm run db:migrate` — applies every pending migration remotely
-- [ ] Create a Turnstile widget for `mandulaj.hu`
+- [x] `npm run db:migrate` — applies every pending migration remotely
+- [x] Create a Turnstile widget for `mandulaj.hu`
 - [ ] Put the **site** key in `.env` as `TURNSTILE_SITE_KEY` (public, baked into HTML)
 - [ ] `wrangler secret put TURNSTILE_SECRET_KEY` (never in the repo)
 - [ ] `wrangler secret put VISITOR_SALT` — generate at least 32 random bytes;

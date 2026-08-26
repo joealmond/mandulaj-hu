@@ -26,13 +26,13 @@
 
   "observability": { "enabled": true },
 
-  // database_id is a placeholder until `wrangler d1 create mandulaj` is run —
-  // local development (`--local`) does not use it.
+  // Remote D1 database created in Cloudflare's EEUR region. Local development
+  // (`--local`) uses its own simulated database instead of this ID.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "mandulaj",
-      "database_id": "PLACEHOLDER_RUN_WRANGLER_D1_CREATE",
+      "database_id": "eec081cf-2952-414f-9ef6-6fe27867a620",
       "migrations_dir": "migrations",
     },
   ],
