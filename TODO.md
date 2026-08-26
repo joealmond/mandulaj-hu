@@ -97,14 +97,16 @@ place; the verification baseline is recorded in Git rather than copied here.
       hosted tenant has no mail-enabled subscriptions. Live DNS still points
       first to `mandulaj-hu.mail.protection.outlook.com`, with `mail.domdom.hu`
       as fallback, and SPF still authorizes Microsoft.
-- [ ] Restore inbound mail before relying on any `@mandulaj.hu` address. Decide
-      between free Cloudflare Email Routing into the existing Gmail inbox
-      (receive-only) and a full hosted mailbox such as Google Workspace
-      (send and receive as `@mandulaj.hu`).
+- [x] ~~Choose a replacement domain-mail provider.~~ **Resolved: no domain
+      email.** Use the existing Gmail privately for accounts and renewal
+      notices, publish no email address on the site, and configure
+      `mandulaj.hu` to reject both inbound mail and spoofed outbound mail.
 - [ ] **⚠ Find out which address your registrar (domdom) sends renewal notices
-      to.** If it is `something@mandulaj.hu` and that mailbox is a black hole,
-      you can lose the domain. This risk exists today and is unrelated to the
-      site.
+      to, and change it to the existing Gmail if necessary.** Do this before
+      touching DNS; otherwise the domain could be lost through missed renewal
+      notices.
+- [ ] Update any other external account that still uses an `@mandulaj.hu`
+      address to the existing Gmail.
 - [x] ~~Decide whether the seeded notes should stay published.~~ **Reverted** —
       all four vault notes are back to their original state and the vault
       contains zero `publish:` flags. You add them yourself.
@@ -146,12 +148,17 @@ place; the verification baseline is recorded in Git rather than copied here.
 Do this **after** step 1 and after the site is confirmed working on `*.workers.dev`.
 
 - [ ] Add `mandulaj.hu` to Cloudflare (free plan; registrar stays at domdom)
-- [ ] **⚠ Verify Cloudflare's import scan captured every existing record** —
-      compare against `dig mandulaj.hu ANY` before touching nameservers.
-      Especially `MX`, `SPF`, and the `MS=` TXT.
+- [ ] **⚠ Compare Cloudflare's import scan against a complete pre-cutover DNS
+      snapshot.** Preserve every non-mail record, but do not carry the dead
+      Microsoft/domdom mail configuration forward.
+- [ ] Stage the explicit no-mail policy in Cloudflare before switching
+      nameservers: replace both old MX records with a null MX (`@ MX 0 .`),
+      replace Microsoft SPF with `v=spf1 -all`, add
+      `_dmarc TXT "v=DMARC1; p=reject"`, and remove the obsolete `MS=` TXT.
 - [ ] Switch nameservers at domdom to Cloudflare's
 - [ ] Add the Worker custom domain `mandulaj.hu` (and `www` if wanted)
-- [ ] Confirm mail still behaves exactly as before the change
+- [ ] Confirm `dig MX/TXT mandulaj.hu` shows the null MX, restrictive SPF, and
+      rejecting DMARC policy; mail to the domain should now fail immediately.
 - [ ] Confirm the old Netlify deployment is no longer serving
 
 ## 5. Mobile publishing
