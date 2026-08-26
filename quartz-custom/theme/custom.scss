@@ -1,0 +1,611 @@
+@use "../../quartz/styles/variables.scss" as *;
+@use "accents.generated" as *;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KASSÁK
+   Hungarian constructivist print, after Kassák Lajos and the MA circle.
+   Structural, asymmetric, confident. The page is composed, not centred.
+
+   Rules of the direction:
+   · One accent per page, derived from the slug. It appears in exactly three
+     places: the ID block, the title rule, and links. Nowhere else.
+   · Structure is drawn, not shaded. Solid blocks and rules; no shadows, no
+     gradients, no rounded corners beyond 0.
+   · Motion is one 120ms colour transition on interactive elements. Nothing else.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* The reading measure, and the shared right edge for EVERYTHING in the
+     content column. It was 34rem, which rendered at 47ch while the title and
+     register rule ran 850px — so nothing lined up on the right and the text
+     column looked accidentally narrow. Both are now clipped to this. */
+  --measure: 68ch;
+  /* 8px rhythm. Vertical spacing steps come from these, not ad hoc values. */
+  --s1: 0.5rem;
+  --s2: 1rem;
+  --s3: 1.5rem;
+  --s4: 2rem;
+  --s6: 3rem;
+  --rule-weight: 3px;
+  --block: 1.6rem;
+  --accent: var(--secondary); /* fallback before the generated sheet lands */
+  --accent-wash: color-mix(in srgb, var(--secondary) 8%, transparent);
+  --accent-rule: color-mix(in srgb, var(--secondary) 55%, transparent);
+}
+
+/* ── Typographic scale ────────────────────────────────────────────────────
+   A fourth-based scale, rounded to whole pixels at the root so vertical
+   rhythm stays exact. Body is 1.0625rem/1.7 — long-form settings, not UI.   */
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-size: 1.0625rem;
+  /* Libre Franklin has a tall x-height; 1.55 is the right leading for it.
+     The column was the problem, not the leading. */
+  line-height: 1.55;
+  font-family: var(--bodyFont);
+  background-color: var(--light);
+  color: var(--darkgray);
+  font-feature-settings:
+    "kern" 1,
+    "liga" 1;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings: Archivo, tight and set in caps at the top level only. Going all
+   caps below h1 would turn the page into signage. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--headerFont);
+  color: var(--dark);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+article h1 {
+  font-size: clamp(2rem, 1.4rem + 2.6vw, 3.1rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
+  margin: 0 0 var(--block);
+}
+
+/* Tracking tightens as size grows; it should not be one fixed value. */
+article h2 {
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+  margin: var(--s4) 0 var(--s1);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--lightgray);
+}
+
+article h3 {
+  font-size: 1.25rem;
+  letter-spacing: -0.005em;
+  margin: var(--s3) 0 var(--s1);
+}
+
+article p {
+  margin: 0 0 var(--s2);
+  /* Stops short words orphaning onto their own line. */
+  text-wrap: pretty;
+}
+
+/* Lists align to the paragraph spine rather than sitting 40px inside it. */
+article ul,
+article ol {
+  padding-inline-start: 1.2em;
+  margin: 0 0 var(--s2);
+}
+article li {
+  margin-bottom: 0.25rem;
+}
+
+/* Reading measure. The single most important rule in the stylesheet — and it
+   applies to the header too, so the title, the register rule and the body text
+   all share one right edge. */
+article > *,
+.page-header > .popover-hint {
+  max-width: var(--measure);
+}
+article pre,
+article table,
+article figure,
+article .mermaid {
+  max-width: 100%;
+}
+
+/* ── The ID block ─────────────────────────────────────────────────────────
+   The one bold element per page. Built entirely from the markup Quartz
+   already emits (.page-header holds breadcrumbs, h1.article-title and
+   p.content-meta) plus two pseudo-elements — so no Quartz component is
+   replaced and nothing in quartz/ is touched.
+
+     [ ZETTELKASTEN ]              2026-08-23 / 2 MIN
+     ══════════════════════════════════════════════════
+     CONTROLLERS TRANSLATE TRANSPORT INTO APPLICATION
+     ▬▬▬▬▬▬▬ ▬▬▬ ──────────────────────────────────────
+                                                                            */
+.page-header > .popover-hint {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "crumb crumb"
+    "id    meta"
+    "title title"
+    "rule  rule"
+    "tags  tags";
+  align-items: end;
+  column-gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+/* The accent block is now real markup (quartz-custom/plugins/note-header) so
+   it can be a link to the category. It is rendered as a sibling in beforeBody
+   and pulled into this grid. */
+.nh {
+  grid-area: id;
+  align-self: end;
+}
+
+/* Tags get a full-width row of their own. Inside the narrow `id` column they
+   were squeezed hard enough to break mid-word ("ENGINEERIN / G"). */
+.nh-tags {
+  grid-area: tags;
+  margin-top: var(--s1);
+}
+
+/* The label's colour MUST be set here, not in the component.
+   Quartz emits plugin CSS inside a @layer; this stylesheet is unlayered, and
+   unlayered rules beat layered ones whatever their specificity. So the generic
+   `a { color: var(--accent) }` below was overriding the component's own
+   `.nh-label { color: var(--light) }` and painting the text the same colour as
+   its background. Anything in a component that a rule here also targets has to
+   be settled here. */
+a.nh-label,
+a.nh-label:hover,
+.nh-label {
+  color: var(--light);
+  text-decoration: none;
+}
+
+/* letter-spacing appends space AFTER the final glyph, so a tracked label looks
+   like it has more right padding than left. Pull the trailing space back. */
+.nh-label::after {
+  content: "";
+  margin-left: -0.01em;
+}
+.nh-label--none::after,
+.nh-label--moc::after {
+  margin-left: -0.1em;
+}
+
+/* Sentence case, deliberately. Uppercase here competed with the H1 for the
+   same reason the H1 wins — and the H1 should win. Caps are reserved for
+   labels and chips, not for a second rendering of the page title. */
+.breadcrumb-container {
+  grid-area: crumb;
+  font-family: var(--codeFont);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--gray);
+  margin: 0 0 var(--s2);
+  flex-wrap: nowrap;
+  /* A long note title in uppercase mono competed with the H1. Truncate. */
+  max-width: 100%;
+  overflow: hidden;
+}
+.breadcrumb-container .breadcrumb-element:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.breadcrumb-container .breadcrumb-element:last-child a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.breadcrumb-container a {
+  color: var(--gray);
+  text-decoration: none;
+}
+.breadcrumb-container a:hover {
+  color: var(--accent);
+}
+
+/* Date + reading time, right-aligned against the ID block. */
+.content-meta {
+  grid-area: meta;
+  justify-self: end;
+  margin: 0 0 0.35rem;
+  font-family: var(--codeFont);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray);
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+}
+/* A middot reads quieter than a slash and needs less air around it. */
+.content-meta > *:not(:last-child)::after {
+  content: " ·";
+  color: var(--gray);
+}
+
+/* Heavy rule closing the ID row, then the title. */
+h1.article-title {
+  grid-area: title;
+  margin: 0;
+  padding-top: var(--s2);
+  border-top: var(--rule-weight) solid var(--dark);
+  font-size: clamp(1.9rem, 1.3rem + 2.6vw, 3.25rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  /* All-caps at this size read loose between letters and tight between words.
+     Negative tracking fixes the first, word-spacing the second — caps need
+     both, and neither is optional at display size. */
+  letter-spacing: -0.02em;
+  word-spacing: 0.06em;
+  line-height: 0.98;
+  text-wrap: balance;
+  /* Length guard. All-caps at display size is a signature at three lines and
+     a wall at five. Past ~60 characters it drops a step; the class is added in
+     scripts/postbuild.ts because CSS cannot count characters. */
+  /* Optical alignment: Archivo's cap sidebearing leaves the first glyph
+     sitting visibly right of the rule and chip above it. Expressed in em so it
+     scales with the clamp instead of drifting at other sizes. */
+  margin-left: -0.03em;
+}
+
+h1.article-title.is-long {
+  font-size: clamp(1.6rem, 1.1rem + 1.9vw, 2.35rem);
+  word-spacing: 0.04em;
+}
+
+/* The register mark under the title: solid, accent, hairline.
+   It gets its OWN grid row. Sharing the title's row and pinning it to the
+   bottom made it overlap the final line of a wrapping title — obvious on
+   mobile, where headings wrap to four or five lines. */
+.page-header > .popover-hint::after {
+  content: "";
+  grid-area: rule;
+  margin-top: 0.9rem;
+  height: var(--rule-weight);
+  background:
+    linear-gradient(to right, var(--dark) 0 5.5rem, transparent 5.5rem) no-repeat,
+    linear-gradient(to right, var(--accent) 0 2.2rem, transparent 2.2rem) no-repeat,
+    linear-gradient(to right, var(--lightgray) 0 100%) no-repeat;
+  background-size:
+    5.5rem 100%,
+    2.2rem 100%,
+    100% 1px;
+  background-position:
+    0 0,
+    6.1rem 0,
+    0 calc(50% + 0.5px);
+}
+
+/* Push the article down clear of the register mark. */
+.page-header {
+  margin-bottom: 0.4rem;
+}
+
+/* ── Links ────────────────────────────────────────────────────────────────
+   Underline offset far enough to clear descenders. Colour is the page accent. */
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: var(--accent-rule);
+  transition: text-decoration-color 120ms ease; /* the one transition */
+}
+a:hover {
+  text-decoration-color: var(--accent);
+}
+
+a.internal {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* ── Focus: visible, high contrast, never removed ─────────────────────── */
+:where(a, button, input, summary, [tabindex]):focus-visible {
+  outline: var(--rule-weight) solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+/* ── Links-out block ──────────────────────────────────────────────────── */
+.links-out-label {
+  font-family: var(--codeFont);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 2.5rem 0 0.9rem;
+}
+.links-out-label::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: var(--accent);
+}
+
+/* ── The left rail's three panes ──────────────────────────────────────────
+   The panel component owns Recent and Categories; the explorer is Quartz's
+   own component rendered as a sibling. One attribute on <body> decides which
+   is visible, so switching is pure CSS and survives SPA navigation.
+   Default (attribute absent, e.g. before the script runs) shows Recent.      */
+body .explorer {
+  display: none;
+}
+body[data-panel="explorer"] .explorer {
+  display: block;
+}
+body[data-panel="explorer"] .pn-pane {
+  display: none;
+}
+.pn-pane[data-pane="recent"] {
+  display: block;
+}
+body[data-panel="categories"] .pn-pane[data-pane="recent"] {
+  display: none;
+}
+body[data-panel="categories"] .pn-pane[data-pane="categories"] {
+  display: block;
+}
+body[data-panel="explorer"] .pn-pane[data-pane="recent"] {
+  display: none;
+}
+body[data-panel="tags"] .pn-pane[data-pane="recent"] {
+  display: none;
+}
+body[data-panel="tags"] .pn-pane[data-pane="tags"] {
+  display: block;
+}
+
+/* While typing, results REPLACE the rail's panes rather than covering the
+   page. Esc restores them. This is why there is no search dialog on desktop.
+   Hiding the .pn WRAPPER rather than each pane: the per-pane rules above are
+   more specific (body[data-panel=x] .pn-pane[data-pane=x]) and would win. */
+body[data-searching="true"] .pn,
+body[data-searching="true"] .explorer {
+  display: none;
+}
+
+/* The toolbar holds the search field and the darkmode toggle side by side.
+   The field grows tall when results appear, so the toggle is pinned to the top
+   rather than being centred against a column of results. */
+/* Quartz renders a layout `group` as .flex-component, not by its group name —
+   `.toolbar` matches nothing. It also sets `align-self: center` on each child
+   wrapper, which beats align-items on the container, so the children have to be
+   overridden directly. Without this the darkmode toggle drifts to the vertical
+   middle of the search results. */
+.sidebar .flex-component {
+  align-items: flex-start;
+}
+/* Quartz writes `align-self: center` as an INLINE style on every group child,
+   which no stylesheet rule can beat. Without this the darkmode toggle centres
+   itself against the full height of the search results and floats mid-rail.
+   `!important` is the only override available against an inline style, and is
+   scoped as narrowly as possible. */
+.sidebar .flex-component > * {
+  align-self: flex-start !important;
+}
+
+/* ── Chrome: as close to invisible as the layout allows ───────────────── */
+/* Sidebar links are navigation, not prose: no accent, no underline until
+   hover. Using the page accent here would make every list item shout. */
+.sidebar {
+  font-size: 0.82rem;
+  /* Two-line entries had ~18px between their own lines and ~9px between
+     items, so wrapped titles read as two separate entries. Tighter leading
+     inside, more space between. */
+  line-height: 1.28;
+}
+.sidebar a,
+.explorer a,
+.explorer .folder-title {
+  color: var(--gray);
+  text-decoration: none;
+  font-family: var(--bodyFont);
+}
+.sidebar a:hover,
+.explorer a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+/* Quartz applies opacity 0.7–0.8 to explorer and footer links. Our colours
+   already clear AA on their own; the opacity dragged them under it
+   (sidebar 3.95:1, footer 2.80:1 in dark mode). Contrast is controlled by the
+   colour tokens, not by transparency. */
+.explorer a,
+.explorer .folder-title,
+.explorer button,
+footer,
+footer a,
+footer ul,
+footer li {
+  opacity: 1;
+}
+
+.explorer .folder-title,
+.explorer h3,
+.explorer h2,
+.graph h3,
+.graph h2,
+.backlinks h3,
+.backlinks h2,
+.toc h3,
+.toc h2,
+.sidebar-heading {
+  font-family: var(--codeFont);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray);
+  font-weight: 400;
+}
+
+.page-title,
+.page-title a {
+  font-family: var(--headerFont);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  font-size: 1.05rem;
+  color: var(--dark);
+  text-decoration: none;
+}
+
+/* Kill the default card/box treatments — this direction draws with rules. */
+.callout,
+blockquote,
+pre,
+.popover-inner {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+blockquote {
+  border-left: var(--rule-weight) solid var(--accent);
+  margin: 1.5rem 0;
+  padding: 0.1rem 0 0.1rem 1.25rem;
+  font-style: normal;
+  color: var(--darkgray);
+}
+
+pre,
+code {
+  font-family: var(--codeFont);
+}
+pre {
+  border: 1px solid var(--lightgray);
+  padding: 1rem 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+:not(pre) > code {
+  background: var(--accent-wash);
+  padding: 0.1em 0.35em;
+  font-size: 0.86em;
+}
+
+/* Tables and wide content scroll inside themselves; the page never does. */
+.table-container {
+  overflow-x: auto;
+}
+table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+th,
+td {
+  border-bottom: 1px solid var(--lightgray);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+th {
+  font-family: var(--headerFont);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--lightgray);
+  margin-top: 4rem;
+  padding-top: 1.25rem;
+  font-family: var(--codeFont);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+footer ul {
+  gap: 1rem;
+}
+
+/* ── Mobile first: the rail collapses, the ID block stays ─────────────── */
+@media all and (max-width: 800px) {
+  body {
+    font-size: 1rem;
+  }
+
+  /* Touch targets. The dark-mode toggle rendered well under the 44px minimum,
+     which is the one thing WCAG asks of a control you tap with a thumb. */
+  .darkmode button,
+  .darkmode,
+  .explorer-toggle,
+  .pn-tab {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .darkmode button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  article h1 {
+    font-size: 1.9rem;
+  }
+  .zk-meta {
+    font-size: 0.68rem;
+  }
+  .zk-id {
+    font-size: 1.15rem;
+    padding: 0.3rem 0.7rem 0.25rem;
+  }
+}
+
+/* ── Motion: honoured, not decorated ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Print ────────────────────────────────────────────────────────────── */
+@media print {
+  .sidebar,
+  footer,
+  .zk-meta {
+    display: none;
+  }
+  article {
+    max-width: none;
+  }
+}

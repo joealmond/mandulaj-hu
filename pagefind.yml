@@ -1,0 +1,19 @@
+# Pagefind indexing config.
+#
+# root-selector is ".center" rather than "article" on purpose: Quartz renders
+# the <h1> in .page-header, a sibling of <article>. Scoping to <article> alone
+# would index the body text but leave every result untitled.
+site: public
+output_subdir: pagefind
+root_selector: .center
+
+# Only root-level pages. Published notes all live flat at the root (slugs are
+# flattened at sync time), so this indexes the notes and the home page while
+# excluding tags/*.html — tag listings are just repeated note titles and they
+# crowded out real results.
+glob: "*.html"
+exclude_selectors:
+  - nav
+  - .breadcrumb-container
+  - .content-meta
+  - .pf

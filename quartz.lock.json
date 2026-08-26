@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "plugins": {
+    "engagement": {
+      "source": "./quartz-custom/plugins/engagement",
+      "resolved": "./quartz-custom/plugins/engagement",
+      "commit": "local",
+      "installedAt": "2026-08-23T23:14:09.490Z"
+    },
+    "note-header": {
+      "source": "./quartz-custom/plugins/note-header",
+      "resolved": "./quartz-custom/plugins/note-header",
+      "commit": "local",
+      "installedAt": "2026-08-23T22:50:56.735Z"
+    },
+    "pagefind-search": {
+      "source": "./quartz-custom/plugins/pagefind-search",
+      "resolved": "./quartz-custom/plugins/pagefind-search",
+      "commit": "local",
+      "installedAt": "2026-08-23T19:38:47.609Z"
+    },
+    "panel": {
+      "source": "./quartz-custom/plugins/panel",
+      "resolved": "./quartz-custom/plugins/panel",
+      "commit": "local",
+      "installedAt": "2026-08-23T22:53:24.191Z"
+    },
+    "projects": {
+      "source": "./quartz-custom/plugins/projects",
+      "resolved": "./quartz-custom/plugins/projects",
+      "commit": "local",
+      "installedAt": "2026-08-23T19:51:27.158Z"
+    },
+    "webmentions": {
+      "source": "./quartz-custom/plugins/webmentions",
+      "resolved": "./quartz-custom/plugins/webmentions",
+      "commit": "local",
+      "installedAt": "2026-08-23T19:50:07.082Z"
+    }
+  }
+}

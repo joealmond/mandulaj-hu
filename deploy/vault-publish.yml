@@ -1,0 +1,162 @@
+# Mobile publishing for mandulaj.hu.
+#
+# ── WHERE THIS GOES ──────────────────────────────────────────────────────
+# This file belongs in the PRIVATE VAULT repo, not the public site repo:
+#
+#   joealmond/base_note_vault → .github/workflows/publish.yml
+#
+# Why there: it needs the vault, and it holds a Cloudflare token. Keeping both
+# inside the private repo means no secret ever lives in the public site repo.
+#
+# Install:
+#   mkdir -p ~/Documents/Base/.github/workflows
+#   cp deploy/vault-publish.yml ~/Documents/Base/.github/workflows/publish.yml
+#
+# ── SECRETS (vault repo → Settings → Secrets and variables → Actions) ─────
+#   CLOUDFLARE_API_TOKEN    Workers Scripts: Edit + D1: Edit
+#   CLOUDFLARE_ACCOUNT_ID   from the Cloudflare dashboard sidebar
+#   SITE_REPO_TOKEN         fine-grained token, Contents: Read and write on only
+#                           the mandulaj-hu repo (public or private)
+#
+# ── HOW IT'S TRIGGERED ───────────────────────────────────────────────────
+# Editing a note on Obsidian mobile → obsidian-git commits and pushes the
+# vault → this runs → the site is live in ~2 minutes.
+#
+# It runs after any Markdown push because folder location is not part of the
+# publishing policy. Sync then decides whether the public artifact changed;
+# private-note-only edits stop before the expensive build and deploy.
+
+name: Publish site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # `publish: true` is the single gate, so a flagged note may live anywhere.
+      - "**/*.md"
+  workflow_dispatch: # lets you publish by hand from the GitHub app on your phone
+
+# A burst of edits should deploy once, not five times.
+concurrency:
+  group: publish-site
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out vault
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: vault
+          # Full history: the site derives last-modified dates from git.
+          fetch-depth: 0
+
+      - name: Check out site
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: joealmond/mandulaj-hu
+          path: site
+          fetch-depth: 0
+          # A cross-repository token is required because this workflow records
+          # the generated public artifact after a successful deployment.
+          token: ${{ secrets.SITE_REPO_TOKEN }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install
+        working-directory: site
+        run: npm ci
+
+      - name: Sync published notes from vault
+        working-directory: site
+        env:
+          # The only line that points the build at the vault. Everything the
+          # sync policy enforces — publish toggle, public frontmatter, attachment
+          # tracing — applies here exactly as it does locally.
+          VAULT_PATH: ${{ github.workspace }}/vault
+        run: npm run sync
+
+      - name: Check whether the public artifact changed
+        id: public_change
+        working-directory: site
+        shell: bash
+        run: |
+          changes="$(git status --porcelain --untracked-files=all -- \
+            content \
+            .publish-manifest.json \
+            quartz-custom/theme/_accents.generated.scss \
+            quartz-custom/data/webmentions.json)"
+          if [[ -n "$changes" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Public artifact changed:"
+            echo "$changes"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Private-note-only change; build and deploy are unnecessary."
+          fi
+
+      - name: Build and verify
+        if: steps.public_change.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: site
+        env:
+          TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+          WEBMENTION_DOMAIN: ${{ vars.WEBMENTION_DOMAIN }}
+          WEBMENTION_IO_TOKEN: ${{ secrets.WEBMENTION_IO_TOKEN }}
+        # `build` runs the content audit BEFORE the build and the output audit
+        # after. Either failing fails this job, and nothing is deployed.
+        run: npm run build
+
+      - name: Deploy to Cloudflare
+        id: deploy
+        if: steps.public_change.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        working-directory: site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
+
+      - name: Record generated public artifact
+        if: steps.public_change.outputs.changed == 'true'
+        working-directory: site
+        shell: bash
+        env:
+          VAULT_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- \
+            content \
+            .publish-manifest.json \
+            quartz-custom/theme/_accents.generated.scss \
+            quartz-custom/data/webmentions.json
+          git commit -m "publish: vault ${VAULT_SHA::7}"
+          git push origin HEAD:main
+
+      - name: Report
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            if [ "${{ steps.public_change.outputs.changed }}" = "false" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              echo "✓ No public change; deployment skipped." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "✓ Published — https://mandulaj.hu" >> "$GITHUB_STEP_SUMMARY"
+              echo "Vault source: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+              echo "Site source: $(git -C site rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          elif [ "${{ steps.deploy.outcome }}" = "success" ]; then
+            echo "⚠ Deployment completed, but its site-repository record failed." >> "$GITHUB_STEP_SUMMARY"
+            echo "Re-run this workflow after resolving the Git error." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "✗ Publish failed. Check the failed step before retrying." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,45 @@
+{
+  "name": "@mandulaj/note-header",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "peerDependencies": {
+    "preact": "^10.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "quartz": {
+    "name": "note-header",
+    "displayName": "Note Header",
+    "category": "component",
+    "version": "1.0.0",
+    "quartzVersion": ">=5.0.0",
+    "dependencies": [],
+    "defaultEnabled": true,
+    "defaultOptions": {},
+    "components": {
+      "NoteHeader": {
+        "displayName": "Note Header",
+        "defaultPosition": "beforeBody",
+        "defaultPriority": 8
+      }
+    }
+  }
+}

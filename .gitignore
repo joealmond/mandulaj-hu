@@ -1,0 +1,73 @@
+# ── Build & tooling ──────────────────────────────────────────────────────
+node_modules
+public
+prof
+*.tsbuildinfo
+.quartz-cache
+.quartz/
+quartz/cli/tui/dist/
+.turbo/
+.vercel
+.DS_Store
+
+# ── Secrets ──────────────────────────────────────────────────────────────
+# Umami site id, webmention.io token, anything else env-configured.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa
+id_ed25519
+.npmrc
+
+# ── The private vault ────────────────────────────────────────────────────
+# The vault lives at ~/Documents/Base and is NEVER copied into this repo.
+# These entries exist so that an accidental `cp -r` of the vault, or a
+# symlink, or an Obsidian folder opened here, cannot be committed.
+.obsidian/
+.trash/
+vault/
+Base/
+private/
+0 Inbox/
+1 Projects/
+2 Areas/
+3 Resources/
+4 Archive/
+Journal/
+Input/
+copilot/
+
+# ── Attachments ──────────────────────────────────────────────────────────
+# content/attachments/ IS committed, but only ever holds files that
+# `npm run sync` traced from a published note. Any other media dumped at the
+# repo root is unreferenced by definition and must not ship.
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
+/*.pdf
+/*.mp4
+/*.mp3
+
+# ── Local plugin build output ────────────────────────────────────────────
+# Rebuilt on every `npm run build` by scripts/build-plugins.mjs.
+quartz-custom/plugins/*/dist/
+quartz-custom/plugins/*/node_modules/
+quartz-custom/plugins/*/package-lock.json
+
+# Editor/agent local config
+.claude/
+
+# wrangler local secrets
+.dev.vars
+.wrangler/
+
+# sync staging and rollback backups (never left behind on success)
+.sync-staging/
+*.sync-backup-*
+
+# Local-only exposure report (lists private note titles)
+.publish-exposure.json

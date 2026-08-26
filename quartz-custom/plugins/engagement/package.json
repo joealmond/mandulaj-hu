@@ -1,0 +1,45 @@
+{
+  "name": "@mandulaj/engagement",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "peerDependencies": {
+    "preact": "^10.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "quartz": {
+    "name": "engagement",
+    "displayName": "Likes and Comments",
+    "category": "component",
+    "version": "1.0.0",
+    "quartzVersion": ">=5.0.0",
+    "dependencies": [],
+    "defaultEnabled": true,
+    "defaultOptions": {},
+    "components": {
+      "Engagement": {
+        "displayName": "Likes and Comments",
+        "defaultPosition": "afterBody",
+        "defaultPriority": 30
+      }
+    }
+  }
+}

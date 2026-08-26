@@ -1,0 +1,34 @@
+# Cache policy. Mirrors what vercel.json used to do.
+#
+# Emitted into public/ by scripts/postbuild.ts — do not edit the copy in
+# public/, it is overwritten on every build.
+
+# Content-addressed assets: the filename changes when the bytes change,
+# so these can be cached forever.
+/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+
+# Pagefind's index is regenerated each build but is not content-hashed.
+/pagefind/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.xml
+  Content-Type: application/rss+xml; charset=utf-8
+  Cache-Control: public, max-age=3600
+
+# Everything else — HTML must revalidate or a republished note stays stale.
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()

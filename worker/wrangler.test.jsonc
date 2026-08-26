@@ -1,0 +1,23 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "mandulaj-hu-test",
+  "main": "./index.ts",
+  "compatibility_date": "2026-08-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./fixtures/assets",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mandulaj-test",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../migrations",
+    },
+  ],
+  "vars": {
+    "SITE_ORIGIN": "https://mandulaj.hu",
+  },
+}

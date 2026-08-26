@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local Worker development. Never commit real values.
+VISITOR_SALT=replace-with-at-least-32-random-bytes
+TURNSTILE_SECRET_KEY=replace-with-turnstile-secret
+TELEGRAM_BOT_TOKEN=optional
+TELEGRAM_CHAT_ID=optional

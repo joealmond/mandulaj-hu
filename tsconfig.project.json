@@ -1,0 +1,28 @@
+{
+  // Typechecks the code THIS project owns.
+  //
+  // The root tsconfig.json includes only `quartz/**` and root-level *.ts, so
+  // `tsc -p tsconfig.json` was checking ZERO files under scripts/, worker/ or
+  // quartz-custom/. A syntax error in scripts/lib.ts once passed that check and
+  // only surfaced at runtime.
+  //
+  // worker/ has its own config because it needs @cloudflare/workers-types.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "types/**/*.d.ts",
+    "scripts/**/*.ts",
+    "quartz-custom/**/*.ts",
+    "quartz-custom/**/*.tsx"
+  ],
+  "exclude": ["**/node_modules/**", "**/dist/**"]
+}

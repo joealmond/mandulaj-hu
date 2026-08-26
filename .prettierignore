@@ -1,0 +1,16 @@
+public
+node_modules
+.quartz-cache
+.wrangler
+
+# GENERATED — never format these.
+# content/ is produced by `npm run sync` and hash-verified by scripts/audit.ts;
+# reformatting it would break the content audit for no reason.
+content
+.sync-staging
+.publish-manifest.json
+worker-configuration.d.ts
+quartz-custom/theme/_accents.generated.scss
+quartz-custom/data/webmentions.json
+quartz-custom/plugins/*/dist
+.quartz
