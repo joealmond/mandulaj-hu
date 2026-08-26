@@ -92,11 +92,15 @@ place; the verification baseline is recorded in Git rather than copied here.
 
 ## 1. Before anything else
 
-- [ ] **⚠ Check whether mail on `mandulaj.hu` is live.** Send a mail to
-      `hello@mandulaj.hu` from Gmail and wait 24h. - No bounce means a server _accepted_ it — something is live and quietly
-      swallowing mail. That is not proof it is safe to break. - Current records: `MX 1 mandulaj-hu.mail.protection.outlook.com`,
-      `MX 10 mail.domdom.hu`, `TXT MS=ms45896177`,
-      `TXT v=spf1 include:spf.protection.outlook.com -all`
+- [x] **⚠ Check whether mail on `mandulaj.hu` is live.** It is not. Gmail
+      received repeated `451 4.4.4` deferrals from Microsoft stating that the
+      hosted tenant has no mail-enabled subscriptions. Live DNS still points
+      first to `mandulaj-hu.mail.protection.outlook.com`, with `mail.domdom.hu`
+      as fallback, and SPF still authorizes Microsoft.
+- [ ] Restore inbound mail before relying on any `@mandulaj.hu` address. Decide
+      between free Cloudflare Email Routing into the existing Gmail inbox
+      (receive-only) and a full hosted mailbox such as Google Workspace
+      (send and receive as `@mandulaj.hu`).
 - [ ] **⚠ Find out which address your registrar (domdom) sends renewal notices
       to.** If it is `something@mandulaj.hu` and that mailbox is a black hole,
       you can lose the domain. This risk exists today and is unrelated to the
