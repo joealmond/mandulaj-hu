@@ -93,3 +93,25 @@ test("env: every script reading process.env imports ./env.js first", () => {
     `these read .env-configured variables but do not import "./env.js" first: ${offenders.join(", ")}`,
   )
 })
+
+test("turnstile: an API token in TURNSTILE_SITE_KEY fails the build", async () => {
+  // A cfut_ Cloudflare API token was once pasted here and published as a meta
+  // tag on every page. Unset stays supported; a real site key still passes.
+  const { assertTurnstileSiteKey } = await import("./postbuild.js")
+
+  assert.doesNotThrow(() => assertTurnstileSiteKey(""))
+  assert.doesNotThrow(() => assertTurnstileSiteKey("1x00000000000000000000AA"))
+  assert.doesNotThrow(() => assertTurnstileSiteKey("0x4AAAAAAABkMYinukE8nzYS"))
+
+  for (const bad of [
+    "cfut_example-invalid-token", // Cloudflare API token
+    "v1.0-abcdef0123456789abcdef0123456789", // Cloudflare global-key style
+    "not-a-key",
+  ]) {
+    assert.throws(
+      () => assertTurnstileSiteKey(bad),
+      /does not look like a Turnstile site key/,
+      `expected ${bad.slice(0, 8)}… to be rejected`,
+    )
+  }
+})

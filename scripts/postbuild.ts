@@ -118,6 +118,39 @@ function markLongTitles(html: string): string {
 }
 
 /**
+ * Turnstile SITE keys look like `0x4AAAAAAA…`; the documented test keys use the
+ * `1x`/`2x`/`3x` prefixes. Anything else is not a site key.
+ *
+ * This guard exists because a Cloudflare API token (`cfut_…`) was once pasted
+ * into TURNSTILE_SITE_KEY and published as a meta tag on every page. Cloudflare
+ * hands out several credential types from the same dashboard and nothing about
+ * them says which slot they belong in, so the only safe assumption is that an
+ * unrecognised value is a credential rather than a site key.
+ *
+ * Fails the build rather than skipping injection: silently dropping the key
+ * would leave comments mysteriously off, which is the failure mode that hid the
+ * unloaded .env for so long.
+ */
+const TURNSTILE_SITE_KEY_RE = /^[0-3]x[A-Za-z0-9_-]{20,}$/
+
+export function assertTurnstileSiteKey(key: string): void {
+  if (!key) return // Unset is a supported state: the comment form stays hidden.
+  if (TURNSTILE_SITE_KEY_RE.test(key)) return
+
+  const looksLikeCredential = /^(cfut_|cfsk_|v1\.0-)/.test(key)
+  throw new Error(
+    `TURNSTILE_SITE_KEY does not look like a Turnstile site key.\n` +
+      `  got:      ${key.slice(0, 6)}… (${key.length} chars)\n` +
+      `  expected: 0x4AAAAAAA… (or a 1x/2x/3x test key)\n` +
+      (looksLikeCredential
+        ? `  This looks like a Cloudflare API token or secret. It would have been\n` +
+          `  published in the HTML of every page. Revoke it if it is real.\n`
+        : "") +
+      `  The site key is in the Turnstile dashboard next to the secret key.`,
+  )
+}
+
+/**
  * Injects the Turnstile SITE key (public, not a secret) as a meta tag.
  *
  * It has to reach the browser somehow and the component is bundled at build
@@ -200,6 +233,7 @@ async function collectHtml(dir: string, out: string[] = []): Promise<string[]> {
 }
 
 const turnstileKey = (process.env.TURNSTILE_SITE_KEY ?? "").trim()
+assertTurnstileSiteKey(turnstileKey)
 
 async function addFeedDiscovery(baseUrl: string) {
   const tag =
