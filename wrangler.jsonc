@@ -39,6 +39,15 @@
 
   "vars": {
     "SITE_ORIGIN": "https://mandulaj.hu",
+
+    // Hosts a Turnstile token may legitimately have been solved on, comma
+    // separated. EMPTY on purpose: the Worker then allows the configured site
+    // plus whichever host is actually serving the request, so verification
+    // works on *.workers.dev during bootstrap and on mandulaj.hu after the DNS
+    // cutover, without a code change in between.
+    //
+    // Set it to "mandulaj.hu" once DNS is live if you want it pinned.
+    "TURNSTILE_HOSTNAMES": "",
   },
 
   // Bindings added when the resources exist (see README "Cloudflare setup"):

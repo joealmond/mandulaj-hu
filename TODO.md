@@ -122,8 +122,20 @@ place; the verification baseline is recorded in Git rather than copied here.
       (replaces `PLACEHOLDER_RUN_WRANGLER_D1_CREATE`)
 - [x] `npm run db:migrate` — applies every pending migration remotely
 - [x] Create a Turnstile widget for `mandulaj.hu`
-- [ ] Put the **site** key in `.env` as `TURNSTILE_SITE_KEY` (public, baked into HTML)
-- [ ] `wrangler secret put TURNSTILE_SECRET_KEY` (never in the repo)
+- [x] Harden Turnstile verification — success **and** `action: "comment"` **and**
+      an allowed hostname; fails closed on every error path. Tested locally
+      against both the always-pass and always-fail test secrets.
+- [ ] **Deploy once with comments still hidden.** `TURNSTILE_SITE_KEY` unset
+      means the form never renders, so nothing can be submitted before the
+      secret exists. `npm run deploy`
+- [ ] `wrangler secret put TURNSTILE_SECRET_KEY` — only possible after the
+      Worker exists, which is why the deploy above comes first
+- [ ] `wrangler secret put VISITOR_SALT` (32+ random bytes)
+- [ ] Put the **site** key in `.env` as `TURNSTILE_SITE_KEY`, rebuild, deploy —
+      this is what turns the comment form on
+- [ ] Post a real comment on the `*.workers.dev` URL and confirm it stores
+- [ ] After the DNS cutover, optionally pin `TURNSTILE_HOSTNAMES` to
+      `mandulaj.hu` in `wrangler.jsonc`
 - [ ] `wrangler secret put VISITOR_SALT` — generate at least 32 random bytes;
       do not rotate it without intentionally resetting existing likes
 - [ ] `wrangler secret put TELEGRAM_BOT_TOKEN` — reuse the hermes bot

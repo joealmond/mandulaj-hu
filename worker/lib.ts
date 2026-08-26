@@ -77,31 +77,142 @@ export const isValidSlug = (s: unknown): s is string =>
  * Verifies a Turnstile token. Fails CLOSED: if the secret is unset or the
  * verify call errors, the submission is rejected rather than let through.
  */
+/** Turnstile tokens are ~600 chars; anything far larger is not one. */
+const MAX_TOKEN_LEN = 4096
+const SITEVERIFY_TIMEOUT_MS = 8000
+
+export interface TurnstileResult {
+  ok: boolean
+  /** Populated on failure, for server-side logging only. Never sent to a client. */
+  reason?: string
+}
+
+/**
+ * Verifies a Turnstile token against three independent conditions.
+ *
+ * All three must hold, because `success` alone is weaker than it looks:
+ *
+ *  1. `success` — the challenge was actually solved.
+ *  2. `action` — the token came from the comment form, not from some other
+ *     widget on the site. Without this a token minted by any other form could
+ *     be replayed here.
+ *  3. `hostname` — the widget was solved on a host we serve. Without this
+ *     someone can embed our sitekey on their own page, farm tokens there, and
+ *     post with them.
+ *
+ * Fails CLOSED on every error path: no secret, malformed token, network
+ * failure, timeout, non-200, unparseable body.
+ */
 export async function verifyTurnstile(
-  secret: string,
+  secret: string | undefined,
   token: unknown,
   ip: string,
-  expectedHostname: string,
+  allowedHostnames: string[],
   expectedAction: string,
-): Promise<boolean> {
-  if (!secret) return false
-  if (typeof token !== "string" || !token) return false
+): Promise<TurnstileResult> {
+  if (!secret) return { ok: false, reason: "no secret configured" }
+  if (typeof token !== "string" || !token) return { ok: false, reason: "missing token" }
+  if (token.length > MAX_TOKEN_LEN) return { ok: false, reason: "token too long" }
+  if (allowedHostnames.length === 0) return { ok: false, reason: "no allowed hostnames" }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), SITEVERIFY_TIMEOUT_MS)
   try {
     const body = new FormData()
     body.append("secret", secret)
     body.append("response", token)
     body.append("remoteip", ip)
+
     const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       body,
+      signal: controller.signal,
     })
-    const data = (await res.json()) as { success?: boolean; hostname?: string; action?: string }
-    return (
-      data.success === true && data.hostname === expectedHostname && data.action === expectedAction
-    )
-  } catch {
-    return false
+    if (!res.ok) return { ok: false, reason: `siteverify HTTP ${res.status}` }
+
+    const data = (await res.json()) as {
+      success?: boolean
+      hostname?: string
+      action?: string
+      "error-codes"?: string[]
+      metadata?: { result_with_testing_key?: boolean }
+    }
+
+    if (data.success !== true) {
+      return {
+        ok: false,
+        reason: `rejected: ${(data["error-codes"] ?? []).join(",") || "unknown"}`,
+      }
+    }
+    /*
+     * Cloudflare's documented ALWAYS-PASS test keys answer with
+     * `hostname: "example.com"` and no `action` at all, so the two checks below
+     * would reject every local comment. Cloudflare marks those responses
+     * explicitly, and that marker cannot appear for a real sitekey — so trust
+     * it, and skip the checks that the test keys structurally cannot satisfy.
+     *
+     * Loud, because a production Worker configured with a test secret would be
+     * accepting anything, and that should be impossible to miss in the logs.
+     */
+    if (data.metadata?.result_with_testing_key === true) {
+      console.warn(
+        "turnstile: TEST KEY in use — action and hostname checks skipped. " +
+          "This must never appear in production.",
+      )
+      return { ok: true }
+    }
+
+    if (data.action !== expectedAction) {
+      return { ok: false, reason: `action mismatch: got ${data.action ?? "none"}` }
+    }
+    if (!data.hostname || !allowedHostnames.includes(data.hostname)) {
+      return { ok: false, reason: `hostname not allowed: ${data.hostname ?? "none"}` }
+    }
+    return { ok: true }
+  } catch (err) {
+    const aborted = (err as Error)?.name === "AbortError"
+    return { ok: false, reason: aborted ? "siteverify timed out" : "siteverify unreachable" }
+  } finally {
+    clearTimeout(timer)
   }
+}
+
+/**
+ * Hosts a Turnstile token may legitimately have been solved on.
+ *
+ * `TURNSTILE_HOSTNAMES` (comma separated) pins this explicitly. With it unset
+ * the list is the configured site plus the host actually serving this request —
+ * which is what makes the bootstrap sequence work: the first deployments live
+ * on *.workers.dev, long before DNS points at the custom domain, and a check
+ * hardcoded to mandulaj.hu would reject every comment there with a misleading
+ * "verification failed".
+ *
+ * It stays strict in the sense that matters: the token must come from a host we
+ * are actually serving, never from someone else's page.
+ */
+export function allowedTurnstileHostnames(env: Env, request: Request): string[] {
+  const pinned = env.TURNSTILE_HOSTNAMES?.trim()
+  if (pinned) {
+    return pinned
+      .split(",")
+      .map((h: string) => h.trim().toLowerCase())
+      .filter(Boolean)
+  }
+
+  const hosts = new Set<string>()
+  try {
+    hosts.add(new URL(request.url).hostname.toLowerCase())
+  } catch {
+    /* unreachable in a Worker, but never throw from here */
+  }
+  if (env.SITE_ORIGIN) {
+    try {
+      hosts.add(new URL(env.SITE_ORIGIN).hostname.toLowerCase())
+    } catch {
+      /* a malformed SITE_ORIGIN must not disable verification */
+    }
+  }
+  return [...hosts]
 }
 
 /**

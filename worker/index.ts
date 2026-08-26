@@ -10,6 +10,7 @@
  * the database is missing or a migration has not run yet.
  */
 import {
+  allowedTurnstileHostnames,
   bad,
   esc,
   isRateLimited,
@@ -320,16 +321,17 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
   if (links > MAX_LINKS) return bad("Too many links")
 
   const ip = request.headers.get("cf-connecting-ip") ?? "0.0.0.0"
-  const expectedHostname = new URL(env.SITE_ORIGIN).hostname
-  if (
-    !(await verifyTurnstile(
-      env.TURNSTILE_SECRET_KEY,
-      body.turnstileToken,
-      ip,
-      expectedHostname,
-      "comment",
-    ))
-  ) {
+  const verdict = await verifyTurnstile(
+    env.TURNSTILE_SECRET_KEY,
+    body.turnstileToken,
+    ip,
+    allowedTurnstileHostnames(env, request),
+    "comment",
+  )
+  if (!verdict.ok) {
+    // The reason is logged, never returned: it tells an attacker which of the
+    // three checks they tripped. The reader gets one undifferentiated message.
+    console.warn("turnstile rejected:", verdict.reason)
     return bad("Verification failed — reload and try again", 403)
   }
 
