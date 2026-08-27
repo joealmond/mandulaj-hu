@@ -3,75 +3,9 @@
 // Per-page accent, derived deterministically from the slug.
 // ─────────────────────────────────────────────────────────────────────
 
-// vermilion — 2 page(s)
-body[data-slug="copilot-tips"],
-body[data-slug="prompt-engineering"] {
-  --accent: #CD311D;
-  --accent-name: "vermilion";
-  --secondary: #CD311D;
-  --tertiary: #CD311D;
-  --accent-wash: color-mix(in srgb, #CD311D 8%, transparent);
-  --accent-rule: color-mix(in srgb, #CD311D 55%, transparent);
-}
-
-:root[saved-theme="dark"] {
-  body[data-slug="copilot-tips"],
-  body[data-slug="prompt-engineering"] {
-    --accent: #E24531;
-    --secondary: #E24531;
-    --tertiary: #E24531;
-    --accent-wash: color-mix(in srgb, #E24531 14%, transparent);
-    --accent-rule: color-mix(in srgb, #E24531 55%, transparent);
-  }
-}
-
-// ochre — 1 page(s)
-body[data-slug="algorithms"] {
-  --accent: #92640D;
-  --accent-name: "ochre";
-  --secondary: #92640D;
-  --tertiary: #92640D;
-  --accent-wash: color-mix(in srgb, #92640D 8%, transparent);
-  --accent-rule: color-mix(in srgb, #92640D 55%, transparent);
-}
-
-:root[saved-theme="dark"] {
-  body[data-slug="algorithms"] {
-    --accent: #C98A12;
-    --secondary: #C98A12;
-    --tertiary: #C98A12;
-    --accent-wash: color-mix(in srgb, #C98A12 14%, transparent);
-    --accent-rule: color-mix(in srgb, #C98A12 55%, transparent);
-  }
-}
-
-// oxblood — 3 page(s)
-body[data-slug="algorithm-types"],
-body[data-slug="brute-force-algorithm"],
-body[data-slug="hashing-algorithm"] {
-  --accent: #7A2540;
-  --accent-name: "oxblood";
-  --secondary: #7A2540;
-  --tertiary: #7A2540;
-  --accent-wash: color-mix(in srgb, #7A2540 8%, transparent);
-  --accent-rule: color-mix(in srgb, #7A2540 55%, transparent);
-}
-
-:root[saved-theme="dark"] {
-  body[data-slug="algorithm-types"],
-  body[data-slug="brute-force-algorithm"],
-  body[data-slug="hashing-algorithm"] {
-    --accent: #CC557B;
-    --secondary: #CC557B;
-    --tertiary: #CC557B;
-    --accent-wash: color-mix(in srgb, #CC557B 14%, transparent);
-    --accent-rule: color-mix(in srgb, #CC557B 55%, transparent);
-  }
-}
-
 // uncategorised — 2 page(s)
-body[data-slug="index"],
-body[data-slug="projects"] {
+body[data-slug="about"],
+body[data-slug="index"] {
   --accent: #3A342B;
   --accent-name: "neutral";
   --secondary: #3A342B;
@@ -81,8 +15,8 @@ body[data-slug="projects"] {
 }
 
 :root[saved-theme="dark"] {
-  body[data-slug="index"],
-  body[data-slug="projects"] {
+  body[data-slug="about"],
+  body[data-slug="index"] {
     --accent: #B8AF9C;
     --secondary: #B8AF9C;
     --tertiary: #B8AF9C;
@@ -92,11 +26,5 @@ body[data-slug="projects"] {
 }
 
 // Per-page display IDs (derived from slug, pinnable via `zk:`).
-body[data-slug="algorithm-types"] { --zk-id: "3466"; }
-body[data-slug="algorithms"] { --zk-id: "6987"; }
-body[data-slug="brute-force-algorithm"] { --zk-id: "5593"; }
-body[data-slug="copilot-tips"] { --zk-id: "8008"; }
-body[data-slug="hashing-algorithm"] { --zk-id: "9059"; }
+body[data-slug="about"] { --zk-id: "2862"; }
 body[data-slug="index"] { --zk-id: "3739"; }
-body[data-slug="projects"] { --zk-id: "1703"; }
-body[data-slug="prompt-engineering"] { --zk-id: "1209"; }
