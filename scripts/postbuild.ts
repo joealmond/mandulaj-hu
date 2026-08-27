@@ -232,10 +232,7 @@ async function collectHtml(dir: string, out: string[] = []): Promise<string[]> {
   return out
 }
 
-const turnstileKey = (process.env.TURNSTILE_SITE_KEY ?? "").trim()
-assertTurnstileSiteKey(turnstileKey)
-
-async function addFeedDiscovery(baseUrl: string) {
+async function addFeedDiscovery(baseUrl: string, turnstileKey: string) {
   const tag =
     `<link rel="alternate" type="application/rss+xml" ` +
     `title="József Mandula" href="https://${baseUrl}/index.xml"/>` +
@@ -279,13 +276,24 @@ async function addFeedDiscovery(baseUrl: string) {
   )
 }
 
-const baseUrl = await readConfigBaseUrl()
-if (!baseUrl) {
-  console.error(c.red("✗ baseUrl missing from quartz.config.yaml"))
-  process.exit(1)
+async function main() {
+  const turnstileKey = (process.env.TURNSTILE_SITE_KEY ?? "").trim()
+  assertTurnstileSiteKey(turnstileKey)
+
+  const baseUrl = await readConfigBaseUrl()
+  if (!baseUrl) {
+    console.error(c.red("✗ baseUrl missing from quartz.config.yaml"))
+    process.exit(1)
+  }
+  await filterFeed(baseUrl)
+  await writeRobots(baseUrl)
+  await addFeedDiscovery(baseUrl, turnstileKey)
+  await bundleCss()
+  await copyHeaders()
 }
-await filterFeed(baseUrl)
-await writeRobots(baseUrl)
-await addFeedDiscovery(baseUrl)
-await bundleCss()
-await copyHeaders()
+
+// Importing this module exposes its validation helpers without touching the
+// generated site. The post-build work only runs through `npm run finalize`.
+if (process.argv[1] && path.resolve(process.argv[1]).endsWith("postbuild.ts")) {
+  await main()
+}

@@ -115,3 +115,17 @@ test("turnstile: an API token in TURNSTILE_SITE_KEY fails the build", async () =
     )
   }
 })
+
+test("postbuild: importing the module does not run the build", () => {
+  // An import used to execute postbuild immediately. That failed in a clean CI
+  // checkout because `public/` does not exist until after Quartz builds it.
+  // An invalid key makes this probe fail before any files are touched if the
+  // direct-execution guard is ever removed.
+  const probe = spawnSync("npx", ["tsx", "--eval", 'import("./scripts/postbuild.ts")'], {
+    cwd: path.resolve(here, ".."),
+    encoding: "utf8",
+    env: { ...process.env, TURNSTILE_SITE_KEY: "not-a-key" },
+  })
+
+  assert.equal(probe.status, 0, `import ran postbuild:\n${probe.stdout}\n${probe.stderr}`)
+})
