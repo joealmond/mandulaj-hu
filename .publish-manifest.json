@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-25T21:15:28.130Z",
+  "generatedAt": "2026-08-27T00:30:44.839Z",
   "categories": [
     "Algorithm types",
     "Algorithms",
@@ -9,35 +9,31 @@
     {
       "slug": "algorithm-types",
       "title": "Algorithm types",
-      "sha256": "641a785b5d083547",
+      "sha256": "614facbed415a793",
       "attachments": [],
       "accent": "oxblood",
       "zk": "3466",
-      "mocs": [
-        "Algorithms"
-      ],
-      "primaryMoc": "Algorithms",
+      "mocs": [],
+      "primaryMoc": null,
       "isMoc": true,
       "tags": []
     },
     {
       "slug": "algorithms",
       "title": "Algorithms",
-      "sha256": "214c0c4d283a312c",
+      "sha256": "59ab4d23967bee61",
       "attachments": [],
       "accent": "ochre",
       "zk": "6987",
-      "mocs": [
-        "Algorithm types"
-      ],
-      "primaryMoc": "Algorithm types",
+      "mocs": [],
+      "primaryMoc": null,
       "isMoc": true,
       "tags": []
     },
     {
       "slug": "brute-force-algorithm",
       "title": "Brute-force algorithm",
-      "sha256": "87e73f791be7e1ae",
+      "sha256": "1da4139bcf3f5423",
       "attachments": [],
       "accent": "oxblood",
       "zk": "5593",
@@ -66,7 +62,7 @@
     {
       "slug": "hashing-algorithm",
       "title": "Hashing algorithm",
-      "sha256": "071c019902833e3f",
+      "sha256": "3ee951529f3b598c",
       "attachments": [],
       "accent": "oxblood",
       "zk": "9059",
@@ -105,7 +101,7 @@
     {
       "slug": "prompt-engineering",
       "title": "Prompt Engineering",
-      "sha256": "9d8f438429a7d76e",
+      "sha256": "6e1aae90fd964bb1",
       "attachments": [],
       "accent": "vermilion",
       "zk": "1209",

@@ -9,6 +9,7 @@ import {
   publicFrontmatter,
   replaceArtifacts,
   stableGeneratedAt,
+  stripObsidianFooter,
 } from "./sync-utils.ts"
 
 test("attachment names are stable and unique for duplicate basenames", () => {
@@ -50,6 +51,35 @@ test("public frontmatter drops every property that was not explicitly allowed", 
     stack: ["TypeScript", "Cloudflare"],
     link: "https://example.com/public",
   })
+})
+
+test("Obsidian's terminal Links block and note ID stay out of public prose", () => {
+  const input = [
+    "Article body.",
+    "",
+    "### Links:",
+    "[[Journal/2025-03-04|2025-03-04]]",
+    "[[Related note]]",
+    "",
+    "## Next",
+    "",
+    "- [ ] Review later",
+    "",
+    "202503041017",
+    "",
+  ].join("\n")
+
+  assert.equal(stripObsidianFooter(input), "Article body.\n")
+})
+
+test("a normal Links section without an Obsidian note ID is preserved", () => {
+  const input = "Article body.\n\n### Links:\nhttps://example.com\n"
+  assert.equal(stripObsidianFooter(input), input)
+})
+
+test("a terminal note ID without a Links block is preserved", () => {
+  const input = "An article about identifier 202503041017.\n\n202503041017\n"
+  assert.equal(stripObsidianFooter(input), input)
 })
 
 test("manifest timestamp changes only when the public payload changes", () => {

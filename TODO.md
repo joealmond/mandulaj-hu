@@ -29,6 +29,10 @@ place; the verification baseline is recorded in Git rather than copied here.
       Rollback tests prove a failed promotion restores every live artifact.
 - [x] **Reject attachment destination collisions.** Referenced attachments use
       stable vault-path hashes, and duplicate basenames are regression-tested.
+- [x] **Keep Obsidian template footers private.** A terminal `### Links:` block
+      paired with the vault's 12-digit note ID is removed at the sync boundary,
+      before link rewriting and MOC/category resolution. Focused and end-to-end
+      tests preserve ordinary article sections named “Links.”
 - [x] **Stop publicly caching visitor-specific like state.** `GET /api/likes`
       uses a private cache policy, covered in the Workers-runtime suite.
 
@@ -109,10 +113,10 @@ place; the verification baseline is recorded in Git rather than copied here.
 - [x] ~~Decide whether the seeded notes should stay published.~~ **Reverted** —
       all four vault notes are back to their original state and the vault
       contains zero `publish:` flags. You add them yourself.
-- [ ] Publish your first real note: open it in Obsidian, press the
-      **Toggle publish** hotkey, then the **Publish site** button.
-- [ ] Publish at least one MOC page if you want categories — a category only
-      exists when its MOC page is itself published.
+- [x] Publish your first real notes. The live manifest contains the Algorithms,
+      AI/Copilot, home, and projects pages sourced through the vault boundary.
+- [x] Publish at least one MOC page. `Algorithms`, `Algorithm types`, and
+      `Prompt Engineering` are live MOCs/categories.
 
 ## 2. Cloudflare account setup
 
@@ -121,28 +125,50 @@ place; the verification baseline is recorded in Git rather than copied here.
 - [x] Paste the returned `database_id` into `wrangler.jsonc`
       (replaces `PLACEHOLDER_RUN_WRANGLER_D1_CREATE`)
 - [x] `npm run db:migrate` — applies every pending migration remotely
-- [x] Create a Turnstile widget for `mandulaj.hu`
+- [x] Verify the replacement Cloudflare API token — it is stored only in the
+      protected local token file and has `Account → Turnstile:Edit` for the
+      correct account.
+- [x] Create and validate the **final replacement Turnstile widget**
+      `mandulaj-comments-v2` for `mandulaj.hu`, `localhost`, `127.0.0.1`, and
+      the exact bootstrap `*.workers.dev` hostname. Its metadata and private
+      secret passed validation; the secret remained unchanged when the bootstrap
+      hostname was added after live error `110200` exposed the missing domain.
 - [x] Harden Turnstile verification — success **and** `action: "comment"` **and**
-      an allowed hostname; fails closed on every error path. Tested locally
-      against both the always-pass and always-fail test secrets.
+      an allowed hostname; fails closed on every error path. The frontend retains
+      the exact widget ID and clears/resets single-use tokens after every request
+      outcome, and rewires after Quartz client-side navigation. All 228
+      Node/Worker tests and project checks pass.
 - [x] **Deploy once with comments still hidden.** Live at
       `https://mandulaj-hu.jozsef-mandula.workers.dev` — 0 turnstile meta tags,
       so the form never reveals itself and nothing can be submitted.
-- [ ] `wrangler secret put TURNSTILE_SECRET_KEY` — only possible after the
-      Worker exists, which is why the deploy above comes first
+- [x] Store the validated **final replacement widget secret** as the Worker
+      binding `TURNSTILE_SECRET_KEY`, overwriting the stale value. The exact
+      Worker target and resulting binding name were verified after the write.
 - [x] `wrangler secret put VISITOR_SALT` — 48 random bytes, set 2026-08-27.
       Likes verified working in production: count persists and toggles.
-- [ ] Put the **site** key in `.env` as `TURNSTILE_SITE_KEY`, rebuild, deploy —
-      this is what turns the comment form on
-- [ ] Post a real comment on the `*.workers.dev` URL and confirm it stores
+- [x] Put the **final replacement public site key** in the ignored `.env` as
+      `TURNSTILE_SITE_KEY` and rebuild locally. All 222 tests passed, the build
+      and privacy audit passed, and all 10 generated meta tags match the key.
+- [x] Deploy the site-key-enabled build and confirm the `*.workers.dev` URL
+      serves it. Version `0c3fd8f3-29db-4a36-9ad3-db7f35f6bb68` is live, its
+      homepage has exactly the approved site key, `/api/comments` is healthy,
+      engagement initializes after both direct and client-side navigation, and
+      Obsidian-only Links/ID footers are absent from every published article.
+- [x] Post real comments on the `*.workers.dev` URL and confirm they store —
+      three user-entered comments and two approved end-to-end test comments are
+      visible through the live API/UI.
+- [x] Verify that replaying one freshly accepted real Turnstile token is
+      rejected. A query-gated live probe submitted one fresh token twice: the
+      first request created exactly one comment and the identical replay
+      returned `403`. The temporary probe was then removed.
+- [x] Delete the superseded `mandulaj-comments` widget after the replacement
+      passed live validation. A read-only inventory confirms that only
+      `mandulaj-comments-v2` remains.
 - [ ] After the DNS cutover, optionally pin `TURNSTILE_HOSTNAMES` to
       `mandulaj.hu` in `wrangler.jsonc`
-- [ ] `wrangler secret put VISITOR_SALT` — generate at least 32 random bytes;
-      do not rotate it without intentionally resetting existing likes
 - [ ] `wrangler secret put TELEGRAM_BOT_TOKEN` — reuse the hermes bot
 - [ ] `wrangler secret put TELEGRAM_CHAT_ID` — use a **separate chat or topic**
       so comment pings do not interleave with hermes
-- [ ] `npm run deploy` and confirm the `*.workers.dev` URL serves the site
 - [ ] Post a test comment on the deployed site and confirm the Telegram ping arrives
 
 ## 3. Repository

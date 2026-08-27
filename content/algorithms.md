@@ -3,8 +3,6 @@ publish: true
 title: Algorithms
 slug: algorithms
 tags: []
-moc: Algorithm types
-mocSlug: algorithm-types
 isMoc: true
 accent: ochre
 ---
@@ -112,12 +110,3 @@ accent: ochre
 26. **QuickSort (Randomized Pivot)**
     - **Description:** A divide-and-conquer sorting algorithm that uses a randomly chosen pivot to improve average-case performance.
     - **Category:** Randomized algorithm
-
-### Links:
-2025-03-04
-String manipulation
-[[algorithm-types|Algorithm types]]
-Algorithm broader categories
-Algorithm Categories for Problem Solving Strategies
-
-202503041017

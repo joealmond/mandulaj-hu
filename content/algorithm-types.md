@@ -3,8 +3,6 @@ publish: true
 title: Algorithm types
 slug: algorithm-types
 tags: []
-moc: Algorithms
-mocSlug: algorithms
 isMoc: true
 accent: oxblood
 ---
@@ -26,10 +24,3 @@ https://medium.com/@raheelanjum151/what-are-the-characteristics-of-an-algorithm-
 https://www.techtarget.com/whatis/definition/algorithm
 https://www.geeksforgeeks.org/classification-of-algorithms-with-examples/
 https://github.com/wuzhouhui/misc2/blob/master/Introduction.to.Algorithms.4th.Edition.2022.4.pdf
-
-### Links:
-2025-03-04
-[[algorithms|Algorithms]]
-Algorithm broader categories
-
-202503041331

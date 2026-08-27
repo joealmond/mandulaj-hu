@@ -18,8 +18,3 @@ Examples: Hash Table/Dictionary Implementation, Rabin-Karp String Matching, Bloo
 - **Input/Output Pattern:** Often involves processing collections of items (arrays, strings) and needing to efficiently look up or count occurrences. Output might involve counts, groups, or checks for existence.
 - **Core Idea:** Use hash functions and hash tables (dictionaries, maps) to achieve fast average-case lookup, insertion, and deletion operations.
 - **Keywords:** "frequency," "count," "lookup," "check if exists," "duplicates," "anagrams," "map," "dictionary," "hash table," "unique elements."
-### Links:
-2025-03-04
-[[algorithm-types|Algorithm types]]
-
-202503041339

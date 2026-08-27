@@ -35,6 +35,12 @@ Body text that is long enough to generate a description from.
 
 Links: [[Private note]] and [[Published sibling]].
 ![[shot.png]]
+
+### Links:
+[[Journal/2026-08-27|2026-08-27]]
+[[Published sibling]]
+
+202608271230
 `,
   )
   w("Public/Published sibling.md", "---\npublish: true\n---\n\nSibling body.\n")
@@ -87,6 +93,10 @@ test("sync publishes only flagged notes, and nothing else leaks", () => {
 
     // A link to a published note becomes a real slug link.
     assert.match(note, /\[\[published-sibling\|/, "published link rewritten to its slug")
+
+    // Template-only Obsidian navigation and the Zettel ID are not article prose.
+    assert.doesNotMatch(note, /^### Links:$/m, "Obsidian Links footer stripped")
+    assert.ok(!note.includes("202608271230"), "Obsidian note ID stripped")
 
     // Only the referenced image ships, and it is the PUBLIC one.
     const attachDir = path.join(out, "attachments")
