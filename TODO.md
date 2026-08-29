@@ -282,18 +282,17 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       location was an invisible second rule that made moves and cross-device
       publishing harder to predict. ADR-017 records the remaining risk and the
       default-deny metadata, attachment, link, plan, and audit controls.
-- [ ] **Graph view renders only the current node.** Verified 2026-08-26: the
-      data is correct (`contentIndex.json` has the right inbound/outbound links,
-      e.g. `hashing-algorithm` 1 out / 2 in), the config is normal
-      (`depth: 1`), a canvas is created, and pixi.js and d3 both load 200. It
-      still draws a single dot on every page. Not caused by our changes — the
-      mobile removal script does not fire on desktop (`matchMedia` false, graph
-      still in the DOM). Upstream `@quartz-community/graph`. Backlinks give the
-      same information and do work, so this is cosmetic.
-- [ ] **Redirects from the old portfolio.** Still needs the URL list. Priority:
-      anything with external inbound links, then anything posted publicly
-      (LinkedIn, GitHub profile), then top organic pages. Send them and they
-      get mapped in `wrangler.jsonc`. - [x] ~~The 404 fallback is no longer just an apology~~ — it now carries
+- [x] ~~**Graph view renders only the current node.**~~ **Resolved in the live
+      two-page launch build:** `contentIndex.json` contains the reciprocal
+      Welcome/About links, the production desktop canvas renders two differently
+      coloured nodes and their connecting edge, and the console is clean. The
+      graph remains deliberately absent on mobile.
+- [x] ~~**Redirects from the old portfolio.**~~ **Resolved from the live old
+      site inventory:** it was a one-page portfolio whose navigation used hash
+      anchors; `/index_hu` was its only alternate page route. Both
+      `/index_hu` spellings now return a production 301 to `/` while preserving
+      query parameters. No invented route list is needed.
+- [x] ~~The 404 fallback is no longer just an apology~~ — it now carries
       search and the recent-notes list. The 404 page type hardcodes the
       `minimal` frame, which renders no rails; overridden to `default`.
 
