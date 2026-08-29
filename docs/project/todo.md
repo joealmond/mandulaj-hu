@@ -367,7 +367,9 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 - [x] Fix the mobile layout shown in iOS Chrome/Safari: the left rail now stacks
       instead of forcing a desktop-width canvas, and search/comment inputs use
       16px text so iOS does not auto-zoom. Verified at 390, 430, and 800 px with
-      no horizontal overflow.
+      no horizontal overflow. The Tree tab also keeps Quartz's explorer inline
+      instead of opening its competing full-screen mobile drawer; its state is
+      reapplied after client-side navigation.
 - [ ] Run a production Lighthouse performance/accessibility audit. Paused until
       a fresh Codex task: Chrome DevTools MCP was installed and enabled on
       2026-08-29, but MCP tools are loaded only when a task/session starts.
@@ -375,3 +377,7 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       [Private comment mirror in Obsidian](comment-mirror.md). D1 remains
       authoritative; no email addresses, capability tokens, or visitor/rate-limit
       identifiers may enter the vault.
+- [ ] Consider replacing Obsidian Sync with iCloud sync. Before migrating, test
+      conflict handling, version recovery, hidden-file behavior, phone-to-Mac
+      latency, and whether the desktop Git publishing bridge receives complete
+      writes. Keep Git as a separate backup and deployment transport either way.

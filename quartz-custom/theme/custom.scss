@@ -621,6 +621,42 @@ footer ul {
     padding-inline: 0.65rem;
   }
 
+  /* The panel's Tree tab is already the mobile control for the explorer.
+     Quartz's explorer also ships its own phone-only full-screen drawer. The
+     explorer is hidden when Quartz initialises, so it never receives the
+     drawer's `collapsed` class; revealing it through the Tree tab therefore
+     opens a 100dvh overlay and covers/translates the article. Keep the tree in
+     the rail like Recent, Categories, and Tags, and remove the redundant menu
+     button. Desktop explorer behaviour is unchanged. */
+  body[data-panel="explorer"] .sidebar.left .explorer {
+    order: initial;
+    height: auto;
+    overflow: visible;
+    flex: none;
+    align-self: stretch;
+    margin: 0;
+  }
+
+  body[data-panel="explorer"] .sidebar.left .explorer .mobile-explorer {
+    display: none;
+  }
+
+  body[data-panel="explorer"] .sidebar.left .explorer .explorer-content,
+  body[data-panel="explorer"] .sidebar.left .explorer.collapsed > .explorer-content,
+  body[data-panel="explorer"] .sidebar.left .explorer:not(.collapsed) > .explorer-content {
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    transform: none;
+    transition: none;
+    visibility: visible;
+  }
+
   .content-meta {
     min-width: 0;
     flex-wrap: wrap;

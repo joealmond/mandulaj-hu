@@ -290,10 +290,10 @@ const Panel: QuartzComponentConstructor = () => {
   Component.afterDOMLoaded = `
 (() => {
   const KEY = "panel-pane";
-  const root = document.querySelector(".pn");
-  if (!root) return;
+  const PANES = new Set(["recent", "categories", "tags", "explorer"]);
 
   function apply(pane) {
+    if (!PANES.has(pane)) pane = "recent";
     document.body.setAttribute("data-panel", pane);
     for (const t of document.querySelectorAll(".pn-tab")) {
       t.setAttribute("aria-selected", String(t.dataset.pane === pane));
@@ -301,51 +301,65 @@ const Panel: QuartzComponentConstructor = () => {
     try { localStorage.setItem(KEY, pane); } catch (e) {}
   }
 
-  let saved = "recent";
-  try { saved = localStorage.getItem(KEY) || "recent"; } catch (e) {}
-  apply(saved);
+  function wirePanel() {
+    const root = document.querySelector(".pn");
+    if (!root) return;
 
-  root.addEventListener("click", (e) => {
-    const tab = e.target.closest(".pn-tab");
-    if (tab) apply(tab.dataset.pane);
-  });
+    let saved = "recent";
+    try { saved = localStorage.getItem(KEY) || "recent"; } catch (e) {}
+    apply(saved);
 
-  /*
-   * Explorer ARIA patch.
-   *
-   * Upstream's explorer puts aria-expanded on the container <div>, which is not
-   * a valid ARIA combination — the attribute belongs on the control that does
-   * the expanding. There IS a real <button class="explorer-toggle"> already
-   * carrying aria-controls, so the state just needs to live there instead.
-   *
-   * Stripping it server-side was not enough: the explorer's own script re-adds
-   * it whenever the tree collapses, which is the default on mobile. This
-   * mirrors the state onto the button and keeps the container clean, including
-   * after the explorer writes to it again.
-   *
-   * Small enough to send upstream as a PR; delete this when it lands.
-   */
-  const explorer = document.querySelector(".explorer");
-  const explorerBtn = document.querySelector(".explorer-toggle");
-  if (explorer && explorerBtn) {
-    const mirror = () => {
-      const state = explorer.getAttribute("aria-expanded");
-      if (state === null) return;
-      explorer.removeAttribute("aria-expanded");
-      explorerBtn.setAttribute("aria-expanded", state);
-    };
-    // Collapsed state is also expressed as a data attribute, so seed from that
-    // when the explorer has not written aria-expanded yet.
-    explorerBtn.setAttribute(
-      "aria-expanded",
-      String(explorer.dataset.collapsed !== "collapsed"),
-    );
-    mirror();
-    new MutationObserver(mirror).observe(explorer, {
-      attributes: true,
-      attributeFilter: ["aria-expanded"],
-    });
+    if (!root.dataset.panelWired) {
+      root.dataset.panelWired = "1";
+      root.addEventListener("click", (e) => {
+        const tab = e.target.closest(".pn-tab");
+        if (tab) apply(tab.dataset.pane);
+      });
+    }
+
+    /*
+     * Explorer ARIA patch.
+     *
+     * Upstream's explorer puts aria-expanded on the container <div>, which is not
+     * a valid ARIA combination — the attribute belongs on the control that does
+     * the expanding. There IS a real <button class="explorer-toggle"> already
+     * carrying aria-controls, so the state just needs to live there instead.
+     *
+     * Stripping it server-side was not enough: the explorer's own script re-adds
+     * it whenever the tree collapses, which is the default on mobile. This
+     * mirrors the state onto the button and keeps the container clean, including
+     * after the explorer writes to it again.
+     *
+     * Small enough to send upstream as a PR; delete this when it lands.
+     */
+    const explorer = document.querySelector(".explorer");
+    const explorerBtn = document.querySelector(".explorer-toggle");
+    if (explorer && explorerBtn && !explorer.dataset.panelAriaWired) {
+      explorer.dataset.panelAriaWired = "1";
+      const mirror = () => {
+        const state = explorer.getAttribute("aria-expanded");
+        if (state === null) return;
+        explorer.removeAttribute("aria-expanded");
+        explorerBtn.setAttribute("aria-expanded", state);
+      };
+      // Collapsed state is also expressed as a data attribute, so seed from that
+      // when the explorer has not written aria-expanded yet.
+      explorerBtn.setAttribute(
+        "aria-expanded",
+        String(explorer.dataset.collapsed !== "collapsed"),
+      );
+      mirror();
+      new MutationObserver(mirror).observe(explorer, {
+        attributes: true,
+        attributeFilter: ["aria-expanded"],
+      });
+    }
   }
+
+  // Quartz replaces page markup and body attributes during client-side
+  // navigation. Reapply the remembered pane and wire any newly rendered root.
+  document.addEventListener("nav", wirePanel);
+  wirePanel();
 })();
 `
   return Component
