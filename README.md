@@ -110,7 +110,7 @@ wrangler secret put TURNSTILE_SECRET_KEY
 wrangler secret put VISITOR_SALT
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put TELEGRAM_CHAT_ID
-wrangler secret put TELEGRAM_THREAD_ID # optional: separate forum topic
+wrangler secret put TELEGRAM_THREAD_ID # optional: forum chats only
 ```
 
 `TURNSTILE_SITE_KEY` is public and goes in `.env` — it gets baked into the HTML.
@@ -577,10 +577,16 @@ rather than at the next deploy. The publish audit is untouched by anything
 readers write.
 
 Comments are **post-moderated**: they appear at once, Telegram pings you, and
-you reply or delete. Set `TELEGRAM_THREAD_ID` to a positive forum-topic ID to
-keep these alerts separate from other messages in the configured chat. An
-invalid topic ID fails closed and sends no alert rather than falling back to
-the chat root. Defences are Turnstile, a per-visitor rate limit, and a link cap.
+you reply or delete. Production currently reuses the Hermes bot and its existing
+private chat: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are encrypted Worker
+secrets, while `TELEGRAM_THREAD_ID` is deliberately unset. The Worker calls
+Telegram directly, so Hermes does not need to receive or interpret the comment.
+The notification simply appears as a new message from the bot in the same PM.
+
+For a future forum group, set `TELEGRAM_THREAD_ID` to a positive forum-topic ID
+to keep alerts in that topic. An invalid topic ID fails closed and sends no
+alert rather than falling back to the chat root. Defences are Turnstile, a
+per-visitor rate limit, and a link cap.
 Commenters need no account — their name is remembered in their own browser, and
 a token stored there lets them delete their own comment.
 

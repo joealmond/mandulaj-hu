@@ -166,14 +166,18 @@ place; the verification baseline is recorded in Git rather than copied here.
       `mandulaj-comments-v2` remains.
 - [x] After the DNS cutover, pin `TURNSTILE_HOSTNAMES` to `mandulaj.hu` in
       `wrangler.jsonc`; bootstrap `*.workers.dev` remains read-only.
-- [ ] `wrangler secret put TELEGRAM_BOT_TOKEN` — reuse the hermes bot
-- [ ] `wrangler secret put TELEGRAM_CHAT_ID` — reuse the Hermes forum chat
+- [x] Add `TELEGRAM_BOT_TOKEN` as an encrypted Worker secret — reuses the
+      existing Hermes bot without exposing the token in the repository.
+- [x] Add `TELEGRAM_CHAT_ID` as an encrypted Worker secret — sends alerts to
+      the existing private chat with the bot.
 - [x] Add optional, validated `TELEGRAM_THREAD_ID` support so comment alerts can
       use a dedicated forum topic instead of interleaving with Hermes. Invalid
       values fail closed rather than posting to the chat root.
-- [ ] `wrangler secret put TELEGRAM_THREAD_ID` — create and use a dedicated
-      comment-notification topic
-- [ ] Post a test comment on the deployed site and confirm the Telegram ping arrives
+- [x] Decide topic routing: keep `TELEGRAM_THREAD_ID` unset because the chosen
+      destination is the existing private bot chat, not a forum. Telegram
+      rejected topic creation because that chat is not a forum.
+- [x] Post a test comment on the deployed site and confirm the Telegram ping
+      arrives with the correct deep link.
 
 ## 3. Repository
 

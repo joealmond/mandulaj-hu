@@ -239,6 +239,34 @@ export function telegramMessagePayload(chat: string, text: string, thread?: stri
   }
 }
 
+/** Returns the generated page title, decoded for use outside HTML. */
+export function pageTitleFromHtml(html: string, fallback: string): string {
+  const raw = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]
+  if (!raw) return fallback
+
+  const named: Record<string, string> = {
+    amp: "&",
+    apos: "'",
+    gt: ">",
+    lt: "<",
+    quot: '"',
+  }
+  const decoded = raw.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (entity, dec, hex, name) => {
+    if (dec) return String.fromCodePoint(Number(dec))
+    if (hex) return String.fromCodePoint(Number.parseInt(hex, 16))
+    return named[String(name).toLowerCase()] ?? entity
+  })
+  return decoded.replace(/\s+/g, " ").trim() || fallback
+}
+
+/** One-sentence comment summary followed by the existing deep link. */
+export function telegramCommentText(title: string, name: string, comment: string, url: string) {
+  return (
+    `💬 On <b>${esc(title)}</b>, <b>${esc(name)}</b> commented: “${esc(comment.slice(0, 500))}”\n\n` +
+    esc(url)
+  )
+}
+
 export async function notifyTelegram(env: Env, text: string): Promise<void> {
   const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chat, TELEGRAM_THREAD_ID: thread } = env
   if (!token || !chat) return

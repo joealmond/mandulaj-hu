@@ -4,7 +4,12 @@
  */
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { isValidSlug, telegramMessagePayload } from "./lib.ts"
+import {
+  isValidSlug,
+  pageTitleFromHtml,
+  telegramCommentText,
+  telegramMessagePayload,
+} from "./lib.ts"
 
 test("slug validation rejects traversal and junk", () => {
   for (const ok of ["algorithms", "a", "a-b-c", "note-2026"]) {
@@ -45,4 +50,22 @@ test("Telegram payload targets an optional validated forum topic", () => {
   for (const invalid of ["0", "-1", "1.5", "topic", "9007199254740992"]) {
     assert.equal(telegramMessagePayload("-100123", "hello", invalid), null, invalid)
   }
+})
+
+test("Telegram comment alert is one sentence with title, author, body, and link", () => {
+  assert.equal(
+    pageTitleFromHtml("<title>Design &amp; Systems</title>", "fallback"),
+    "Design & Systems",
+  )
+  assert.equal(pageTitleFromHtml("<html></html>", "fallback"), "fallback")
+  assert.equal(
+    telegramCommentText(
+      "Design & Systems",
+      "József <Admin>",
+      "Useful & clear.",
+      "https://mandulaj.hu/design#c-123",
+    ),
+    "💬 On <b>Design &amp; Systems</b>, <b>József &lt;Admin&gt;</b> commented: “Useful &amp; clear.”\n\n" +
+      "https://mandulaj.hu/design#c-123",
+  )
 })

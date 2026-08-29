@@ -13,12 +13,13 @@
 import {
   allowedTurnstileHostnames,
   bad,
-  esc,
   isRateLimited,
   isValidSlug,
   json,
   notifyTelegram,
+  pageTitleFromHtml,
   rateLimitScope,
+  telegramCommentText,
   verifyTurnstile,
   visitorId,
 } from "./lib"
@@ -158,6 +159,24 @@ async function isPublishedSlug(env: Env, request: Request, slug: string): Promis
     return res.ok
   } catch {
     return false
+  }
+}
+
+/** Fetches the authoritative title from the same deployed asset we accept as published. */
+async function publishedPageTitle(
+  env: Env,
+  request: Request,
+  slug: string,
+): Promise<string | null> {
+  try {
+    const page = new URL(request.url)
+    page.pathname = `/${slug}`
+    page.search = ""
+    const res = await env.ASSETS.fetch(new Request(page.toString(), { method: "GET" }))
+    if (!res.ok) return null
+    return pageTitleFromHtml(await res.text(), slug)
+  } catch {
+    return null
   }
 }
 
@@ -314,7 +333,8 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
   if (text.length > MAX_BODY) return bad(`Comment must be at most ${MAX_BODY} characters`)
   if (email && email.length > 200) return bad("Email must be at most 200 characters")
   if (parentId && !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(parentId)) return bad("Invalid parent")
-  if (!(await isPublishedSlug(env, request, slug))) return bad("Unknown page", 404)
+  const pageTitle = await publishedPageTitle(env, request, slug)
+  if (!pageTitle) return bad("Unknown page", 404)
 
   if (parentId) {
     const parent = await env.DB.prepare(
@@ -364,9 +384,7 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
   ctx.waitUntil(
     notifyTelegram(
       env,
-      `💬 <b>${esc(name)}</b> commented on <code>${esc(slug)}</code>\n\n` +
-        `${esc(text.slice(0, 500))}\n\n` +
-        `https://mandulaj.hu/${esc(slug)}#c-${id}`,
+      telegramCommentText(pageTitle, name, text, `https://mandulaj.hu/${slug}#c-${id}`),
     ),
   )
 
