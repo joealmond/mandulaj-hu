@@ -211,8 +211,8 @@ describe("API Worker", () => {
   })
 
   it("lets the private moderation page post an owner reply and hide the comment", async () => {
-    const id = "510b73a3-6e31-4378-90dd-8d087af714f1"
-    const token = "9035b8cd-3d44-4bd7-af53-864df34498a0"
+    const id = crypto.randomUUID()
+    const token = crypto.randomUUID()
     await env.DB.prepare(
       `INSERT INTO comments
        (id, slug, name, body, status, is_owner, edit_token, moderation_token, created_at)
@@ -277,7 +277,7 @@ describe("API Worker", () => {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        token: "9035b8cd-3d44-4bd7-af53-864df34498a0",
+        token: crypto.randomUUID(),
         action: "hide",
       }),
     })
