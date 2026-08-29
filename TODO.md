@@ -205,17 +205,26 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       after the site and certificate are stable.
 - [x] Add the Worker custom domain `mandulaj.hu`. The temporary Netlify apex A
       record was removed immediately before attaching the hostname; Cloudflare
-      DNS now points the apex to its edge and HTTPS is active. `www` still needs
-      a Cloudflare-native redirect before its temporary Netlify CNAME is removed.
+      DNS now points the apex to its edge and HTTPS is active.
+- [x] Move `www` entirely onto Cloudflare. An active 301 Redirect Rule preserves
+      paths and query strings, and the proxied CNAME now targets `mandulaj.hu`
+      instead of Netlify. A live response contains only Cloudflare headers.
 - [x] Confirm authoritative `dig MX/TXT mandulaj.hu` shows null MX (`0 .`),
       restrictive SPF (`v=spf1 -all`), and rejecting DMARC
       (`v=DMARC1; p=reject`); mail to the domain now fails immediately.
-- [ ] Confirm the old Netlify deployment is no longer serving
+- [ ] Confirm Cloudflare DNSSEC becomes active after the DS record submitted at
+      Domdom (key tag 2371, algorithm 13, digest type 2) reaches the `.hu`
+      delegation. Domdom already reports DNSSEC enabled; public resolvers are
+      still waiting for propagation.
+- [ ] Retire the old Netlify deployment. It is no longer reachable through
+      `mandulaj.hu` or `www`, but its direct `mandulajhussg.netlify.app` URL
+      still returns the former portfolio.
 
 ## 5. Mobile publishing
 
-- [ ] `mkdir -p ~/Documents/Base/.github/workflows`
-- [ ] `cp deploy/vault-publish.yml ~/Documents/Base/.github/workflows/publish.yml`
+- [x] Create `~/Documents/Base/.github/workflows` and install the reviewed
+      workflow as `publish.yml` (vault commit `e0f330a`). The workflow remains
+      inert until its restricted Actions secrets are configured.
 - [ ] Add `CLOUDFLARE_API_TOKEN` as an Actions secret on the **vault** repo
       (scopes: Workers Scripts Edit, D1 Edit)
 - [ ] Add `CLOUDFLARE_ACCOUNT_ID` as an Actions secret on the vault repo
@@ -228,7 +237,7 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 
 ## 6. Desktop publishing
 
-- [ ] Obsidian → Settings → Editor → **Properties in document: Visible**, so
+- [x] Obsidian → Settings → Editor → **Properties in document: Visible**, so
       frontmatter is editable as a properties panel
 - [ ] Install the **Shell commands** Obsidian plugin
 - [ ] Add a **Toggle publish** command with a hotkey:
