@@ -219,19 +219,44 @@ export function allowedTurnstileHostnames(env: Env, request: Request): string[] 
  * Fire-and-forget Telegram notification. Never throws and never blocks the
  * response — a comment must still be accepted if Telegram is unreachable.
  */
+export function telegramMessagePayload(chat: string, text: string, thread?: string) {
+  const rawThread = thread?.trim()
+  let messageThreadId: number | undefined
+
+  if (rawThread) {
+    if (!/^[1-9]\d*$/.test(rawThread)) return null
+    const parsed = Number(rawThread)
+    if (!Number.isSafeInteger(parsed)) return null
+    messageThreadId = parsed
+  }
+
+  return {
+    chat_id: chat,
+    text,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    ...(messageThreadId === undefined ? {} : { message_thread_id: messageThreadId }),
+  }
+}
+
 export async function notifyTelegram(env: Env, text: string): Promise<void> {
-  const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chat } = env
+  const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chat, TELEGRAM_THREAD_ID: thread } = env
   if (!token || !chat) return
+  const payload = telegramMessagePayload(chat, text, thread)
+  if (!payload) {
+    console.warn(
+      JSON.stringify({
+        message: "telegram notification skipped",
+        reason: "invalid TELEGRAM_THREAD_ID",
+      }),
+    )
+    return
+  }
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chat,
-        text,
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-      }),
+      body: JSON.stringify(payload),
     })
   } catch {
     /* notification is best-effort */

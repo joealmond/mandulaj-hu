@@ -50,5 +50,6 @@
   //   "d1_databases": [{ "binding": "DB", "database_name": "mandulaj", "database_id": "..." }]
   //   "vars":         { "TURNSTILE_SITE_KEY": "..." }
   // Secrets (never in this file — `wrangler secret put NAME`):
-  //   VISITOR_SALT, TURNSTILE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+  //   VISITOR_SALT, TURNSTILE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+  //   TELEGRAM_THREAD_ID (optional forum-topic id)
 }

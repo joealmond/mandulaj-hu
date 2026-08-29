@@ -4,7 +4,7 @@
  */
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { isValidSlug } from "./lib.ts"
+import { isValidSlug, telegramMessagePayload } from "./lib.ts"
 
 test("slug validation rejects traversal and junk", () => {
   for (const ok of ["algorithms", "a", "a-b-c", "note-2026"]) {
@@ -24,5 +24,25 @@ test("slug validation rejects traversal and junk", () => {
     {},
   ]) {
     assert.equal(isValidSlug(bad as never), false, JSON.stringify(bad))
+  }
+})
+
+test("Telegram payload targets an optional validated forum topic", () => {
+  assert.deepEqual(telegramMessagePayload("-100123", "hello"), {
+    chat_id: "-100123",
+    text: "hello",
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+  })
+  assert.deepEqual(telegramMessagePayload("-100123", "hello", " 42 "), {
+    chat_id: "-100123",
+    text: "hello",
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    message_thread_id: 42,
+  })
+
+  for (const invalid of ["0", "-1", "1.5", "topic", "9007199254740992"]) {
+    assert.equal(telegramMessagePayload("-100123", "hello", invalid), null, invalid)
   }
 })

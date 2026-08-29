@@ -110,6 +110,7 @@ wrangler secret put TURNSTILE_SECRET_KEY
 wrangler secret put VISITOR_SALT
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put TELEGRAM_CHAT_ID
+wrangler secret put TELEGRAM_THREAD_ID # optional: separate forum topic
 ```
 
 `TURNSTILE_SITE_KEY` is public and goes in `.env` — it gets baked into the HTML.
@@ -576,9 +577,12 @@ rather than at the next deploy. The publish audit is untouched by anything
 readers write.
 
 Comments are **post-moderated**: they appear at once, Telegram pings you, and
-you reply or delete. Defences are Turnstile, a per-visitor rate limit, and a
-link cap. Commenters need no account — their name is remembered in their own
-browser, and a token stored there lets them delete their own comment.
+you reply or delete. Set `TELEGRAM_THREAD_ID` to a positive forum-topic ID to
+keep these alerts separate from other messages in the configured chat. An
+invalid topic ID fails closed and sends no alert rather than falling back to
+the chat root. Defences are Turnstile, a per-visitor rate limit, and a link cap.
+Commenters need no account — their name is remembered in their own browser, and
+a token stored there lets them delete their own comment.
 
 Visitor keys are HMACs of IP and user agent under the `VISITOR_SALT` Worker
 secret. Like keys are stable so a reader can undo a previous like; they remain
