@@ -19,6 +19,7 @@ execFileSync(
   "npx",
   [
     "tsc",
+    "--ignoreConfig",
     "--declaration",
     "--emitDeclarationOnly",
     "--outDir",
