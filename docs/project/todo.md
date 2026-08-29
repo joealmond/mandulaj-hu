@@ -370,9 +370,18 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       no horizontal overflow. The Tree tab also keeps Quartz's explorer inline
       instead of opening its competing full-screen mobile drawer; its state is
       reapplied after client-side navigation.
-- [ ] Run a production Lighthouse performance/accessibility audit. Paused until
-      a fresh Codex task: Chrome DevTools MCP was installed and enabled on
-      2026-08-29, but MCP tools are loaded only when a task/session starts.
+- [x] Run a production Lighthouse performance/accessibility audit. The
+      [2026-08-29 production baseline](production-lighthouse-audit-2026-08-29.md)
+      records three mobile and three desktop Lighthouse runs, direct DevTools
+      traces, accessibility-tree inspection, network evidence, and verified
+      source locations.
+- [ ] Stop loading D3 and PixiJS on mobile, where the graph is deliberately
+      absent. Re-run the production audit after changing the graph package's
+      load guard or disabling the graph.
+- [ ] Add exactly one `main` landmark to each page frame and restore Lighthouse
+      accessibility from 99 to 100.
+- [ ] Resolve overlapping `_headers` cache rules so content-hashed assets receive
+      one immutable policy while HTML still revalidates.
 - [ ] Build the sanitized, one-way private Obsidian comment mirror described in
       [Private comment mirror in Obsidian](comment-mirror.md). D1 remains
       authoritative; no email addresses, capability tokens, or visitor/rate-limit
