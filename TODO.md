@@ -212,13 +212,12 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 - [x] Confirm authoritative `dig MX/TXT mandulaj.hu` shows null MX (`0 .`),
       restrictive SPF (`v=spf1 -all`), and rejecting DMARC
       (`v=DMARC1; p=reject`); mail to the domain now fails immediately.
-- [ ] Confirm Cloudflare DNSSEC becomes active after the DS record submitted at
-      Domdom (key tag 2371, algorithm 13, digest type 2) reaches the `.hu`
-      delegation. Domdom already reports DNSSEC enabled; public resolvers are
-      still waiting for propagation.
-- [ ] Retire the old Netlify deployment. It is no longer reachable through
-      `mandulaj.hu` or `www`, but its direct `mandulajhussg.netlify.app` URL
-      still returns the former portfolio.
+- [x] Confirm Cloudflare DNSSEC is active. The DS record submitted at Domdom
+      (key tag 2371, algorithm 13, digest type 2) is now visible through public
+      resolvers and matches Cloudflare's generated digest.
+- [x] Retire the old Netlify deployment. Project `mandulajhussg` is disabled
+      (reversible) and its direct `*.netlify.app` URL now returns 404; neither
+      `mandulaj.hu` nor `www` depends on it.
 
 ## 5. Mobile publishing
 
@@ -253,7 +252,9 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 - [ ] Register `mandulaj.hu` at [webmention.io](https://webmention.io)
 - [ ] Put `WEBMENTION_IO_TOKEN` and `WEBMENTION_DOMAIN` in `.env`
 - [ ] Connect Mastodon / Bluesky / GitHub at [brid.gy](https://brid.gy)
-- [ ] `npm run webmentions:send -- --dry` on a note with outbound links
+- [x] `npm run webmentions:send -- --dry` against the current published notes:
+      two outbound candidates were inspected, neither advertised a webmention
+      endpoint, and no request was sent.
 
 ## 8. Decisions still open
 
