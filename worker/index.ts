@@ -16,10 +16,12 @@ import {
   isRateLimited,
   isValidSlug,
   json,
+  likeVisitor,
   notifyTelegram,
   pageTitleFromHtml,
   rateLimitScope,
   telegramCommentText,
+  telegramLikeText,
   verifyTurnstile,
   visitorId,
 } from "./lib"
@@ -143,26 +145,10 @@ async function readJson(
 }
 
 /**
- * Confirms a slug corresponds to a real published page.
- *
- * `isValidSlug` only checks the shape, so anything well-formed could seed rows
- * for pages that do not exist. Asking the assets binding is authoritative and
- * needs no coupling to the build — if the page is not deployed, it is not a
- * page. Only writes pay this cost.
+ * Confirms the slug is deployed and returns its authoritative page title.
+ * Asking the assets binding prevents well-formed but nonexistent slugs from
+ * seeding database rows, without coupling the Worker to build-time metadata.
  */
-async function isPublishedSlug(env: Env, request: Request, slug: string): Promise<boolean> {
-  try {
-    const probe = new URL(request.url)
-    probe.pathname = `/${slug}`
-    probe.search = ""
-    const res = await env.ASSETS.fetch(new Request(probe.toString(), { method: "GET" }))
-    return res.ok
-  } catch {
-    return false
-  }
-}
-
-/** Fetches the authoritative title from the same deployed asset we accept as published. */
 async function publishedPageTitle(
   env: Env,
   request: Request,
@@ -198,10 +184,12 @@ async function route(
   }
 
   if (pathname === "/api/likes" && method === "GET") return getLikes(request, env, url)
-  if (pathname === "/api/likes" && method === "POST") return toggleLike(request, env)
+  if (pathname === "/api/likes" && method === "POST") return toggleLike(request, env, ctx)
   if (pathname === "/api/comments" && method === "GET") return getComments(env, url)
   if (pathname === "/api/comments" && method === "POST") return postComment(request, env, ctx)
   if (pathname === "/api/comments" && method === "DELETE") return deleteComment(request, env)
+  if (pathname === "/api/moderate" && method === "GET") return moderationPage(request, env, url)
+  if (pathname === "/api/moderate" && method === "POST") return moderateComment(request, env)
 
   return bad("Not found", 404)
 }
@@ -212,11 +200,13 @@ async function getLikes(request: Request, env: Env, url: URL): Promise<Response>
   const slug = url.searchParams.get("slug")
   if (!isValidSlug(slug)) return bad("Invalid slug")
 
-  const visitor = await visitorId(request, env.VISITOR_SALT, "like")
+  const identity = await likeVisitor(request, env.VISITOR_SALT, false)
+  const visitors = [...new Set([identity.current, identity.legacy].filter(Boolean))] as string[]
+  const placeholders = visitors.map(() => "?").join(", ")
   const [row, vote] = await Promise.all([
     env.DB.prepare("SELECT count FROM likes WHERE slug = ?").bind(slug).first<{ count: number }>(),
-    env.DB.prepare("SELECT 1 AS v FROM like_votes WHERE slug = ? AND visitor = ?")
-      .bind(slug, visitor)
+    env.DB.prepare(`SELECT 1 AS v FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`)
+      .bind(slug, ...visitors)
       .first(),
   ])
 
@@ -231,39 +221,47 @@ async function getLikes(request: Request, env: Env, url: URL): Promise<Response>
   })
 }
 
-async function toggleLike(request: Request, env: Env): Promise<Response> {
+async function toggleLike(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const parsed = await readJson(request)
   if ("error" in parsed) return parsed.error
   const body = parsed.data
   const slug = body.slug
   if (!isValidSlug(slug)) return bad("Invalid slug")
-  if (!(await isPublishedSlug(env, request, slug))) return bad("Unknown page", 404)
+  const pageTitle = await publishedPageTitle(env, request, slug)
+  if (!pageTitle) return bad("Unknown page", 404)
 
-  const visitor = await visitorId(request, env.VISITOR_SALT, "like")
+  const identity = await likeVisitor(request, env.VISITOR_SALT, true)
+  if (!identity.current) throw new Error("Like identity was not created")
+  const visitors = [...new Set([identity.current, identity.legacy])]
+  const placeholders = visitors.map(() => "?").join(", ")
   const rateVisitor = await visitorId(request, env.VISITOR_SALT, rateLimitScope("like"))
   if (await isRateLimited(env.DB, rateVisitor, "like", 60, 60_000)) {
     return bad("Slow down", 429)
   }
 
   const existing = await env.DB.prepare(
-    "SELECT 1 AS v FROM like_votes WHERE slug = ? AND visitor = ?",
+    `SELECT COUNT(*) AS count FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`,
   )
-    .bind(slug, visitor)
-    .first()
+    .bind(slug, ...visitors)
+    .first<{ count: number }>()
+  const existingCount = existing?.count ?? 0
 
   const now = Date.now()
-  if (existing) {
+  if (existingCount > 0) {
     await env.DB.batch([
-      env.DB.prepare("DELETE FROM like_votes WHERE slug = ? AND visitor = ?").bind(slug, visitor),
+      env.DB.prepare(`DELETE FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`).bind(
+        slug,
+        ...visitors,
+      ),
       env.DB.prepare(
-        "UPDATE likes SET count = MAX(0, count - 1), updated_at = ? WHERE slug = ?",
-      ).bind(now, slug),
+        "UPDATE likes SET count = MAX(0, count - ?), updated_at = ? WHERE slug = ?",
+      ).bind(existingCount, now, slug),
     ])
   } else {
     await env.DB.batch([
       env.DB.prepare("INSERT INTO like_votes (slug, visitor, created_at) VALUES (?, ?, ?)").bind(
         slug,
-        visitor,
+        identity.current,
         now,
       ),
       // Atomic upsert: concurrent likes cannot lose an increment.
@@ -277,7 +275,18 @@ async function toggleLike(request: Request, env: Env): Promise<Response> {
   const row = await env.DB.prepare("SELECT count FROM likes WHERE slug = ?")
     .bind(slug)
     .first<{ count: number }>()
-  return json({ slug, count: row?.count ?? 0, liked: !existing })
+  const count = row?.count ?? 0
+  const liked = existingCount === 0
+  if (liked) {
+    ctx.waitUntil(
+      notifyTelegram(env, telegramLikeText(pageTitle, count, `https://mandulaj.hu/${slug}`)),
+    )
+  }
+  return json(
+    { slug, count, liked },
+    200,
+    identity.setCookie ? { "set-cookie": identity.setCookie } : {},
+  )
 }
 
 /* ── Comments ───────────────────────────────────────────────────────────── */
@@ -289,6 +298,11 @@ interface CommentRow {
   body: string
   is_owner: number
   created_at: number
+}
+
+interface ModerationRow extends CommentRow {
+  slug: string
+  status: string
 }
 
 async function getComments(env: Env, url: URL): Promise<Response> {
@@ -371,13 +385,15 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
 
   const id = crypto.randomUUID()
   const editToken = crypto.randomUUID()
+  const moderationToken = crypto.randomUUID()
   const now = Date.now()
 
   await env.DB.prepare(
-    `INSERT INTO comments (id, slug, parent_id, name, email, body, status, is_owner, edit_token, visitor, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'visible', 0, ?, NULL, ?)`,
+    `INSERT INTO comments
+       (id, slug, parent_id, name, email, body, status, is_owner, edit_token, moderation_token, visitor, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'visible', 0, ?, ?, NULL, ?)`,
   )
-    .bind(id, slug, parentId, name, email, text, editToken, now)
+    .bind(id, slug, parentId, name, email, text, editToken, moderationToken, now)
     .run()
 
   // Post-moderation: it is live now, you hear about it immediately.
@@ -385,6 +401,10 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
     notifyTelegram(
       env,
       telegramCommentText(pageTitle, name, text, `https://mandulaj.hu/${slug}#c-${id}`),
+      {
+        text: "Moderate or reply",
+        url: `${env.SITE_ORIGIN}/api/moderate?token=${moderationToken}`,
+      },
     ),
   )
 
@@ -415,4 +435,223 @@ async function deleteComment(request: Request, env: Env): Promise<Response> {
 
   if (!res.meta.changes) return bad("Not found or token mismatch", 403)
   return json({ ok: true })
+}
+
+const UUID_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const htmlEscape = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+
+function moderationHtml(
+  row: ModerationRow,
+  token: string,
+  pageTitle: string,
+  message?: string,
+): Response {
+  const nonce = crypto.randomUUID().replace(/-/g, "")
+  const visible = row.status === "visible"
+  const date = new Date(row.created_at).toLocaleString("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Budapest",
+  })
+  const pageUrl = `https://mandulaj.hu/${row.slug}#c-${row.id}`
+  const content = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moderate comment · mandulaj.hu</title>
+  <style nonce="${nonce}">
+    :root { color-scheme: light dark; font: 17px/1.55 system-ui, sans-serif; }
+    body { margin: 0; background: Canvas; color: CanvasText; }
+    main { box-sizing: border-box; width: min(42rem, 100%); margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    h1 { line-height: 1.15; }
+    .notice { border-left: .3rem solid #589b60; padding: .75rem 1rem; background: color-mix(in srgb, CanvasText 7%, Canvas); }
+    article { margin: 1.5rem 0; padding: 1rem; border: 1px solid color-mix(in srgb, CanvasText 25%, Canvas); }
+    blockquote { margin: .75rem 0 0; white-space: pre-wrap; }
+    form { margin: 1.25rem 0; }
+    textarea { box-sizing: border-box; width: 100%; min-height: 8rem; padding: .75rem; font: inherit; }
+    button, .link { display: inline-block; box-sizing: border-box; padding: .7rem 1rem; border: 1px solid currentColor; background: CanvasText; color: Canvas; font: inherit; cursor: pointer; text-decoration: none; }
+    .danger { background: #8f2929; color: white; }
+    small { opacity: .72; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Moderate comment</h1>
+  ${message ? `<p class="notice" role="status">${htmlEscape(message)}</p>` : ""}
+  <p>On <strong>${htmlEscape(pageTitle)}</strong></p>
+  <article>
+    <strong>${htmlEscape(row.name)}</strong> <small>· ${htmlEscape(date)}</small>
+    <blockquote>${htmlEscape(row.body)}</blockquote>
+  </article>
+  ${
+    visible
+      ? `<h2>Reply as József Mandula</h2>
+  <form method="post" action="/api/moderate">
+    <input type="hidden" name="token" value="${htmlEscape(token)}">
+    <input type="hidden" name="action" value="reply">
+    <label for="reply">Your public reply</label>
+    <textarea id="reply" name="reply" minlength="2" maxlength="${MAX_BODY}" required></textarea>
+    <button type="submit">Post owner reply</button>
+  </form>
+  <h2>Remove from the site</h2>
+  <p>Hiding is recoverable in the database and removes the comment from the public page.</p>
+  <form method="post" action="/api/moderate">
+    <input type="hidden" name="token" value="${htmlEscape(token)}">
+    <input type="hidden" name="action" value="hide">
+    <button class="danger" type="submit">Hide comment</button>
+  </form>`
+      : "<p>This comment is hidden and is no longer visible on the site.</p>"
+  }
+  <p><a class="link" href="${htmlEscape(pageUrl)}" rel="noreferrer">View post</a></p>
+</main>
+</body>
+</html>`
+
+  return new Response(content, {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "content-security-policy": `default-src 'none'; style-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`,
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff",
+      "x-robots-tag": "noindex, nofollow, noarchive",
+    },
+  })
+}
+
+async function moderationRow(env: Env, token: string): Promise<ModerationRow | null> {
+  return env.DB.prepare(
+    `SELECT id, slug, parent_id, name, body, status, is_owner, created_at
+       FROM comments
+      WHERE moderation_token = ?`,
+  )
+    .bind(token)
+    .first<ModerationRow>()
+}
+
+async function moderationPage(request: Request, env: Env, url: URL): Promise<Response> {
+  const token = url.searchParams.get("token") ?? ""
+  if (!UUID_TOKEN.test(token)) return bad("Invalid moderation link", 404)
+  const row = await moderationRow(env, token)
+  if (!row) return bad("Invalid moderation link", 404)
+  const title = (await publishedPageTitle(env, request, row.slug)) ?? row.slug
+  const done = url.searchParams.get("done")
+  const message = done === "reply" ? "Your owner reply is now public." : undefined
+  return moderationHtml(row, token, title, message)
+}
+
+async function readModerationForm(
+  request: Request,
+): Promise<{ data: URLSearchParams } | { error: Response }> {
+  const contentType = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase()
+  if (contentType !== "application/x-www-form-urlencoded") {
+    return { error: bad("Invalid form", 415) }
+  }
+  const declared = request.headers.get("content-length")
+  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > MAX_BODY_BYTES)) {
+    return { error: bad("Form is too large", 413) }
+  }
+  const reader = request.body?.getReader()
+  if (!reader) return { error: bad("Form is required") }
+  const chunks: Uint8Array[] = []
+  let size = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel()
+      return { error: bad("Form is too large", 413) }
+    }
+    chunks.push(value)
+  }
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  try {
+    return {
+      data: new URLSearchParams(
+        new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes),
+      ),
+    }
+  } catch {
+    return { error: bad("Invalid form") }
+  }
+}
+
+function isSameOriginPost(request: Request, env: Env): boolean {
+  const origin = request.headers.get("origin")
+  if (!origin) return false
+  if (origin === env.SITE_ORIGIN) return true
+  try {
+    const parsed = new URL(origin)
+    return (
+      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
+      new URL(request.url).origin === origin
+    )
+  } catch {
+    return false
+  }
+}
+
+async function moderateComment(request: Request, env: Env): Promise<Response> {
+  if (!isSameOriginPost(request, env)) return bad("Invalid request origin", 403)
+  const parsed = await readModerationForm(request)
+  if ("error" in parsed) return parsed.error
+  const token = parsed.data.get("token") ?? ""
+  const action = parsed.data.get("action") ?? ""
+  if (!UUID_TOKEN.test(token)) return bad("Invalid moderation link", 404)
+  const row = await moderationRow(env, token)
+  if (!row) return bad("Invalid moderation link", 404)
+
+  if (action === "hide") {
+    // Hide the complete reply thread so no owner/reader reply is left orphaned
+    // on the public page when its parent disappears.
+    await env.DB.prepare(
+      `WITH RECURSIVE thread(id) AS (
+         SELECT id FROM comments WHERE id = ?
+         UNION ALL
+         SELECT comments.id FROM comments JOIN thread ON comments.parent_id = thread.id
+       )
+       UPDATE comments SET status = 'hidden' WHERE id IN (SELECT id FROM thread)`,
+    )
+      .bind(row.id)
+      .run()
+    const title = (await publishedPageTitle(env, request, row.slug)) ?? row.slug
+    return moderationHtml({ ...row, status: "hidden" }, token, title, "The comment is hidden.")
+  }
+
+  if (action === "reply") {
+    if (row.status !== "visible") return bad("Cannot reply to a hidden comment", 409)
+    const reply = (parsed.data.get("reply") ?? "").trim()
+    if (reply.length < 2) return bad("Write a reply first")
+    if (reply.length > MAX_BODY) return bad(`Reply must be at most ${MAX_BODY} characters`)
+    const links = (reply.match(/https?:\/\//g) ?? []).length
+    if (links > MAX_LINKS) return bad("Too many links")
+
+    await env.DB.prepare(
+      `INSERT INTO comments
+       (id, slug, parent_id, name, body, status, is_owner, edit_token, moderation_token, visitor, created_at)
+       VALUES (?, ?, ?, 'József Mandula', ?, 'visible', 1, NULL, NULL, NULL, ?)`,
+    )
+      .bind(crypto.randomUUID(), row.slug, row.id, reply, Date.now())
+      .run()
+    return new Response(null, {
+      status: 303,
+      headers: { location: `${env.SITE_ORIGIN}/api/moderate?token=${token}&done=reply` },
+    })
+  }
+
+  return bad("Unknown moderation action")
 }

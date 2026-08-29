@@ -251,6 +251,11 @@ plugins:
     layout:
       position: afterBody
       priority: 10
+  - source: ./quartz-custom/plugins/series-nav
+    enabled: true
+    layout:
+      position: afterBody
+      priority: 15
   - source: ./quartz-custom/plugins/engagement
     enabled: true
     layout:

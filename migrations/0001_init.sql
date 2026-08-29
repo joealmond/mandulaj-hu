@@ -14,8 +14,9 @@ CREATE TABLE IF NOT EXISTS likes (
 );
 
 -- One row per (slug, visitor) so a like can be toggled off and a visitor
--- cannot inflate a count by holding down the button. `visitor` is a salted
--- hash of IP + User-Agent: enough to deduplicate, not enough to identify.
+-- cannot inflate a count by holding down the button. New votes use a salted
+-- hash of a signed, random, first-party browser cookie. Legacy IP + User-Agent
+-- hashes remain readable during migration but are no longer written as votes.
 CREATE TABLE IF NOT EXISTS like_votes (
   slug       TEXT NOT NULL,
   visitor    TEXT NOT NULL,

@@ -110,8 +110,13 @@ describe("API Worker", () => {
     }
     const liked = await fetchApi("/api/likes", init)
     expect(await liked.json()).toMatchObject({ count: 1, liked: true })
+    const cookie = liked.headers.get("set-cookie")?.split(";", 1)[0]
+    expect(cookie).toMatch(/^mandulaj_like=/)
 
-    const unliked = await fetchApi("/api/likes", init)
+    const unliked = await fetchApi("/api/likes", {
+      ...init,
+      headers: { ...init.headers, cookie: cookie ?? "" },
+    })
     expect(await unliked.json()).toMatchObject({ count: 0, liked: false })
   })
 
@@ -203,5 +208,79 @@ describe("API Worker", () => {
       .bind(id)
       .first<{ status: string }>()
     expect(row?.status).toBe("hidden")
+  })
+
+  it("lets the private moderation page post an owner reply and hide the comment", async () => {
+    const id = "510b73a3-6e31-4378-90dd-8d087af714f1"
+    const token = "9035b8cd-3d44-4bd7-af53-864df34498a0"
+    await env.DB.prepare(
+      `INSERT INTO comments
+       (id, slug, name, body, status, is_owner, edit_token, moderation_token, created_at)
+       VALUES (?, 'algorithms', '<Reader>', 'A useful & safe body', 'visible', 0, 'edit', ?, ?)`,
+    )
+      .bind(id, token, Date.now())
+      .run()
+
+    const page = await fetchApi(`/api/moderate?token=${token}`)
+    expect(page.status).toBe(200)
+    expect(page.headers.get("cache-control")).toBe("no-store")
+    expect(page.headers.get("x-robots-tag")).toContain("noindex")
+    const html = await page.text()
+    expect(html).toContain("&lt;Reader&gt;")
+    expect(html).not.toContain("<Reader>")
+
+    const reply = await fetchApi("/api/moderate", {
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        origin: "https://mandulaj.hu",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ token, action: "reply", reply: "Thank you for reading." }),
+    })
+    expect(reply.status).toBe(303)
+
+    const owner = await env.DB.prepare(
+      "SELECT parent_id, name, body, is_owner, status FROM comments WHERE is_owner = 1",
+    ).first<{
+      parent_id: string
+      name: string
+      body: string
+      is_owner: number
+      status: string
+    }>()
+    expect(owner).toEqual({
+      parent_id: id,
+      name: "József Mandula",
+      body: "Thank you for reading.",
+      is_owner: 1,
+      status: "visible",
+    })
+
+    const hidden = await fetchApi("/api/moderate", {
+      method: "POST",
+      headers: {
+        origin: "https://mandulaj.hu",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ token, action: "hide" }),
+    })
+    expect(hidden.status).toBe(200)
+    expect(await hidden.text()).toContain("The comment is hidden.")
+
+    const comments = await fetchApi("/api/comments?slug=algorithms")
+    expect(await comments.json()).toEqual({ comments: [] })
+  })
+
+  it("rejects moderation mutations without a same-origin browser POST", async () => {
+    const response = await fetchApi("/api/moderate", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        token: "9035b8cd-3d44-4bd7-af53-864df34498a0",
+        action: "hide",
+      }),
+    })
+    expect(response.status).toBe(403)
   })
 })

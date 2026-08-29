@@ -108,8 +108,11 @@ place; the verification baseline is recorded in Git rather than copied here.
 - [x] **⚠ Verify the registrar renewal contact.** Domdom lists the existing
       Gmail as the registered-owner contact for `mandulaj.hu`; no address
       change is needed before the DNS cutover.
-- [ ] Update any other external account that still uses an `@mandulaj.hu`
-      address to the existing Gmail.
+- [x] Check other external accounts for the retired address. GitHub, Cloudflare,
+      Netlify, and Domdom all use the existing Gmail; Domdom's latest system
+      notification explicitly names that destination. A Gmail search for the
+      known `hello@` and `me@` aliases found old correspondence and delivery
+      tests, but no remaining service account.
 - [x] ~~Decide whether the seeded notes should stay published.~~ **Resolved:**
       the technical/MOC notes are private again. Only the Welcome and About me
       notes are published, both sourced from `2 Areas/Tech blog/` in Obsidian.
@@ -178,6 +181,11 @@ place; the verification baseline is recorded in Git rather than copied here.
       rejected topic creation because that chat is not a forum.
 - [x] Post a test comment on the deployed site and confirm the Telegram ping
       arrives with the correct deep link.
+- [x] Add like alerts to the same Telegram PM. A new like reports the post title
+      and authoritative total; removing a like is silent.
+- [x] Add a `Moderate or reply` URL button to comment alerts. Its random
+      per-comment capability opens a no-cache/no-index confirmation page where
+      the owner can post a labelled reply or hide the complete comment thread.
 
 ## 3. Repository
 
@@ -261,8 +269,8 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 - [x] Test the first half: edit a published note on mobile and confirm Obsidian
       Sync delivers it to the Mac. `About me.md` arrived with the new sentence
       intact on 2026-08-29.
-- [ ] Test the second half: let desktop Obsidian Git commit and push the synced
-      mobile edit, then confirm the Action runs and the site updates.
+- [x] Test the second half: desktop Obsidian Git pushed the synced mobile edit,
+      the Action ran, and the expected production link was confirmed on mobile.
 
 ## 6. Desktop publishing
 
@@ -345,9 +353,20 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 
 - [x] GitHub Action runs checks, tests, and `npm run audit` on every site-repo
       push as an independent backstop to the local pre-deploy audit
-- [ ] Owner replies to comments (schema supports `parent_id` and `is_owner`;
-      no UI for posting one yet)
-- [ ] Moderation UI behind Cloudflare Access, if Telegram stops being enough
-- [ ] Reading-position or series navigation between notes in a category
-- [ ] Re-run Lighthouse against production once deployed — current mobile
-      numbers were measured against an uncompressed local server and will improve
+- [x] Owner replies to comments through the private Telegram-linked moderation
+      page; replies use `parent_id`, render with `is_owner`, and bypass the
+      reader-only Turnstile path.
+- [x] Telegram-linked moderation. The random per-comment URL is deliberately
+      scoped more narrowly than Cloudflare Access and does not compete with
+      Hermes for incoming bot updates. Add Access later only if this stops being
+      sufficient.
+- [x] Reading-position/series navigation driven by the Obsidian `series` and
+      `seriesOrder` properties. Three safe vault-originated notes temporarily
+      exercise the full 1-of-3 flow.
+- [x] Fix the mobile layout shown in iOS Chrome/Safari: the left rail now stacks
+      instead of forcing a desktop-width canvas, and search/comment inputs use
+      16px text so iOS does not auto-zoom. Verified at 390, 430, and 800 px with
+      no horizontal overflow.
+- [ ] Run a production Lighthouse performance/accessibility audit. Paused until
+      the required Chrome DevTools MCP connector is available; the web-performance
+      audit skill explicitly requires that connector rather than a substitute.

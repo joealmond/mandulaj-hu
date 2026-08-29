@@ -556,7 +556,81 @@ footer ul {
 
 /* ── Mobile first: the rail collapses, the ID block stays ─────────────── */
 @media all and (max-width: 800px) {
+  html,
+  body,
+  .page,
+  .page > #quartz-body {
+    max-width: 100%;
+    min-width: 0;
+  }
+
   body {
+    font-size: 1rem;
+  }
+
+  /* Quartz's mobile base turns the entire left rail into one flex row. This
+     site has four substantial rail children (title, search/theme toolbar,
+     panel and explorer), so that row created an 800–1000px canvas on phones.
+     Stack the rail and give every child an explicit shrink boundary. */
+  .page > #quartz-body .sidebar.left {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sidebar.left > *,
+  .sidebar.left .flex-component,
+  .sidebar.left .flex-component > *,
+  .sidebar.left .pf,
+  .sidebar.left .pf-field,
+  .sidebar.left .pn,
+  .sidebar.left .explorer {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Search and theme stay on one compact row, but the search wrapper—not the
+     page—absorbs the available width. */
+  .sidebar.left > .flex-component {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .sidebar.left > .flex-component > :first-child {
+    width: 100%;
+  }
+
+  .pn-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pn-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pn-tab {
+    min-width: max-content;
+    padding-inline: 0.65rem;
+  }
+
+  .content-meta {
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* iOS zooms a page when a focused form control is below 16px. The search
+     field was 11–12px, which explains the magnified, horizontally panned
+     keyboard screenshot. */
+  .pf-input {
     font-size: 1rem;
   }
 

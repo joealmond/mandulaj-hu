@@ -3,9 +3,12 @@
 // Per-page accent, derived deterministically from the slug.
 // ─────────────────────────────────────────────────────────────────────
 
-// uncategorised — 2 page(s)
+// uncategorised — 5 page(s)
 body[data-slug="about"],
-body[data-slug="index"] {
+body[data-slug="index"],
+body[data-slug="publishing-notebook-deploy"],
+body[data-slug="publishing-notebook-review"],
+body[data-slug="publishing-notebook-writing"] {
   --accent: #3A342B;
   --accent-name: "neutral";
   --secondary: #3A342B;
@@ -16,7 +19,10 @@ body[data-slug="index"] {
 
 :root[saved-theme="dark"] {
   body[data-slug="about"],
-  body[data-slug="index"] {
+  body[data-slug="index"],
+  body[data-slug="publishing-notebook-deploy"],
+  body[data-slug="publishing-notebook-review"],
+  body[data-slug="publishing-notebook-writing"] {
     --accent: #B8AF9C;
     --secondary: #B8AF9C;
     --tertiary: #B8AF9C;
@@ -28,3 +34,6 @@ body[data-slug="index"] {
 // Per-page display IDs (derived from slug, pinnable via `zk:`).
 body[data-slug="about"] { --zk-id: "2862"; }
 body[data-slug="index"] { --zk-id: "3739"; }
+body[data-slug="publishing-notebook-deploy"] { --zk-id: "2614"; }
+body[data-slug="publishing-notebook-review"] { --zk-id: "6265"; }
+body[data-slug="publishing-notebook-writing"] { --zk-id: "8743"; }

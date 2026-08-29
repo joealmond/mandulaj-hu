@@ -5,6 +5,7 @@ prof
 *.tsbuildinfo
 .quartz-cache
 .quartz/
+.playwright-cli/
 quartz/cli/tui/dist/
 .turbo/
 .vercel

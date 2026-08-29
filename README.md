@@ -281,12 +281,12 @@ publishes the note on the next publish. The review plan prints the public slugs
 being added, changed, or removed before deployment.
 
 Publishing a note does **not** copy all its properties. Source frontmatter is
-default-deny: today only `description`, `type`, `year`, `stack`, and `link` may
-cross unchanged. Those are the documented public project-card fields. Title,
-slug, tags, category, and accent are normalized or derived by sync; properties
-such as `client`, `status`, private URLs, aliases, and arbitrary custom fields
-are dropped. The content audit blocks any unexpected property that somehow
-appears in the generated artifact.
+default-deny: today only the documented project-card fields (`description`,
+`type`, `year`, `stack`, `link`) and reading-order fields (`series`,
+`seriesOrder`) may cross unchanged. Title, slug, tags, category, and accent are
+normalized or derived by sync; properties such as `client`, `status`, private
+URLs, aliases, and arbitrary custom fields are dropped. The content audit blocks
+any unexpected property that somehow appears in the generated artifact.
 
 ### Optional frontmatter
 
@@ -306,6 +306,8 @@ Everything here has a sensible default; set it only when you want to override.
 | `year`          | Public project-card year.                                                    |
 | `stack`         | Public project-card technology list.                                         |
 | `link`          | Public project-card destination URL.                                         |
+| `series`        | Groups published notes into one previous/next reading sequence.              |
+| `seriesOrder`   | Numeric position within that series; lower numbers appear first.             |
 
 ## What publishing exposes beyond the note itself
 
@@ -576,12 +578,21 @@ stranger's text in your git history, and deleting takes effect immediately
 rather than at the next deploy. The publish audit is untouched by anything
 readers write.
 
-Comments are **post-moderated**: they appear at once, Telegram pings you, and
-you reply or delete. Production currently reuses the Hermes bot and its existing
-private chat: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are encrypted Worker
-secrets, while `TELEGRAM_THREAD_ID` is deliberately unset. The Worker calls
-Telegram directly, so Hermes does not need to receive or interpret the comment.
-The notification simply appears as a new message from the bot in the same PM.
+Comments are **post-moderated**: they appear at once and Telegram pings you.
+Every alert includes a **Moderate or reply** button. It opens a private,
+per-comment URL where you can post a public reply labelled as József Mandula or
+hide the complete thread. Hiding is recoverable in D1; there is no destructive
+GET link for Telegram or a link-preview crawler to trigger.
+
+Production reuses the Hermes bot and its existing private chat:
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are encrypted Worker secrets, while
+`TELEGRAM_THREAD_ID` is deliberately unset. The Worker calls Telegram directly,
+so Hermes does not receive or interpret comments and does not share its incoming
+message stream. A random moderation capability authorizes only one comment; the
+page is no-cache, no-index, and requires a same-origin form POST for changes.
+
+New likes also send a Telegram note containing the post title and the new total.
+Removing a like is silent.
 
 For a future forum group, set `TELEGRAM_THREAD_ID` to a positive forum-topic ID
 to keep alerts in that topic. An invalid topic ID fails closed and sends no
@@ -590,12 +601,19 @@ per-visitor rate limit, and a link cap.
 Commenters need no account — their name is remembered in their own browser, and
 a token stored there lets them delete their own comment.
 
-Visitor keys are HMACs of IP and user agent under the `VISITOR_SALT` Worker
-secret. Like keys are stable so a reader can undo a previous like; they remain
-only while that vote remains. Rate-limit keys are action-scoped, rotate daily,
-and are pruned after 24 hours. Comments do not retain a visitor key. Rotating
-`VISITOR_SALT` therefore requires a planned reset of `like_votes` and `likes`,
-otherwise old likes can no longer be toggled off.
+Likes use a signed, random, first-party browser cookie. It is `HttpOnly`,
+`Secure`, `SameSite=Lax`, created only when the reader presses Like, and contains
+no IP address or user agent. D1 stores a separate HMAC of that random identity,
+so the same browser can toggle its vote while different browsers/devices remain
+separate. Clearing cookies permits a new vote; reliably recognizing one human
+across devices would require accounts, which this site deliberately avoids.
+
+IP plus user agent is retained only as a scoped HMAC for rate limiting and for
+recognizing votes made by the previous implementation during migration.
+Rate-limit keys rotate daily and are pruned after 24 hours. Comments do not
+retain a visitor key. Rotating `VISITOR_SALT` invalidates signed like cookies,
+so it requires a planned reset of `like_votes` and `likes`; otherwise old votes
+can no longer be toggled off.
 
 ### Getting likes from Mastodon and Bluesky (Bridgy)
 

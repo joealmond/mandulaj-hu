@@ -8,16 +8,8 @@ export const json = (data: unknown, status = 200, extra: HeadersInit = {}) =>
 
 export const bad = (message: string, status = 400) => json({ error: message }, status)
 
-/**
- * A scoped pseudonymous id for a visitor, keyed with a required secret.
- *
- * HMAC prevents precomputation if the database is exposed. The scope keeps a
- * like identifier from being correlated with a rate-limit identifier.
- */
-export async function visitorId(req: Request, secret: string, scope: string): Promise<string> {
+const hmacHex = async (secret: string, value: string): Promise<string> => {
   if (!secret) throw new Error("VISITOR_SALT is not configured")
-  const ip = req.headers.get("cf-connecting-ip") ?? "0.0.0.0"
-  const ua = req.headers.get("user-agent") ?? ""
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
     "raw",
@@ -26,11 +18,88 @@ export async function visitorId(req: Request, secret: string, scope: string): Pr
     false,
     ["sign"],
   )
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(`${scope}|${ip}|${ua}`))
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value))
   return [...new Uint8Array(signature)]
     .slice(0, 16)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("")
+}
+
+/**
+ * A scoped pseudonymous id for a visitor, keyed with a required secret.
+ *
+ * HMAC prevents precomputation if the database is exposed. The scope keeps a
+ * like identifier from being correlated with a rate-limit identifier.
+ */
+export async function visitorId(req: Request, secret: string, scope: string): Promise<string> {
+  const ip = req.headers.get("cf-connecting-ip") ?? "0.0.0.0"
+  const ua = req.headers.get("user-agent") ?? ""
+  return hmacHex(secret, `${scope}|${ip}|${ua}`)
+}
+
+const LIKE_COOKIE = "mandulaj_like"
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const equalSignature = (left: string, right: string): boolean => {
+  if (left.length !== right.length) return false
+  let difference = 0
+  for (let index = 0; index < left.length; index++) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index)
+  }
+  return difference === 0
+}
+
+function requestCookie(req: Request, name: string): string | null {
+  for (const part of (req.headers.get("cookie") ?? "").split(";")) {
+    const [key, ...rest] = part.trim().split("=")
+    if (key === name) return rest.join("=") || null
+  }
+  return null
+}
+
+export interface LikeVisitor {
+  /** Cookie-backed identifier used by all new votes. */
+  current: string | null
+  /** Previous IP + User-Agent identifier, retained only for seamless migration. */
+  legacy: string
+  /** Present only when a POST needs to establish a new browser identity. */
+  setCookie?: string
+}
+
+/**
+ * Resolve a privacy-preserving browser identity for likes.
+ *
+ * The cookie contains a random UUID plus an HMAC signature, is hidden from
+ * JavaScript, and carries no IP address or other personal data. The database
+ * stores a separate HMAC rather than the cookie value itself. Missing cookies
+ * are created only on an explicit like action, never on a passive page view.
+ */
+export async function likeVisitor(
+  req: Request,
+  secret: string,
+  create: boolean,
+): Promise<LikeVisitor> {
+  const legacy = await visitorId(req, secret, "like")
+  const raw = requestCookie(req, LIKE_COOKIE)
+  if (raw) {
+    const [id, signature, ...extra] = raw.split(".")
+    if (extra.length === 0 && UUID.test(id) && signature) {
+      const expected = await hmacHex(secret, `like-cookie:${id}`)
+      if (equalSignature(signature, expected)) {
+        return { current: await hmacHex(secret, `like-browser:${id}`), legacy }
+      }
+    }
+  }
+
+  if (!create) return { current: null, legacy }
+
+  const id = crypto.randomUUID()
+  const signature = await hmacHex(secret, `like-cookie:${id}`)
+  return {
+    current: await hmacHex(secret, `like-browser:${id}`),
+    legacy,
+    setCookie: `${LIKE_COOKIE}=${id}.${signature}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`,
+  }
 }
 
 /** Daily key for short-lived rate-limit rows. */
@@ -219,7 +288,17 @@ export function allowedTurnstileHostnames(env: Env, request: Request): string[] 
  * Fire-and-forget Telegram notification. Never throws and never blocks the
  * response — a comment must still be accepted if Telegram is unreachable.
  */
-export function telegramMessagePayload(chat: string, text: string, thread?: string) {
+export interface TelegramLinkButton {
+  text: string
+  url: string
+}
+
+export function telegramMessagePayload(
+  chat: string,
+  text: string,
+  thread?: string,
+  button?: TelegramLinkButton,
+) {
   const rawThread = thread?.trim()
   let messageThreadId: number | undefined
 
@@ -230,12 +309,24 @@ export function telegramMessagePayload(chat: string, text: string, thread?: stri
     messageThreadId = parsed
   }
 
+  if (button) {
+    if (!button.text.trim() || button.text.length > 64) return null
+    try {
+      if (new URL(button.url).protocol !== "https:") return null
+    } catch {
+      return null
+    }
+  }
+
   return {
     chat_id: chat,
     text,
     parse_mode: "HTML",
     disable_web_page_preview: true,
     ...(messageThreadId === undefined ? {} : { message_thread_id: messageThreadId }),
+    ...(button
+      ? { reply_markup: { inline_keyboard: [[{ text: button.text, url: button.url }]] } }
+      : {}),
   }
 }
 
@@ -267,10 +358,20 @@ export function telegramCommentText(title: string, name: string, comment: string
   )
 }
 
-export async function notifyTelegram(env: Env, text: string): Promise<void> {
+/** One-sentence like summary followed by the page link. */
+export function telegramLikeText(title: string, count: number, url: string) {
+  const noun = count === 1 ? "like" : "likes"
+  return `❤️ <b>${esc(title)}</b> received a like and now has <b>${count} ${noun}</b>.\n\n${esc(url)}`
+}
+
+export async function notifyTelegram(
+  env: Env,
+  text: string,
+  button?: TelegramLinkButton,
+): Promise<void> {
   const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chat, TELEGRAM_THREAD_ID: thread } = env
   if (!token || !chat) return
-  const payload = telegramMessagePayload(chat, text, thread)
+  const payload = telegramMessagePayload(chat, text, thread, button)
   if (!payload) {
     console.warn(
       JSON.stringify({

@@ -69,7 +69,7 @@ export const config: PublishConfig = {
   vaultPath: process.env.VAULT_PATH ?? path.join(os.homedir(), "Documents", "Base"),
   // Toggle-only policy: any note can be published, but only these optional
   // properties may accompany its body into the public artifact.
-  publicFrontmatter: ["description", "type", "year", "stack", "link"],
+  publicFrontmatter: ["description", "type", "year", "stack", "link", "series", "seriesOrder"],
   contentDir: "content",
   attachmentsSubdir: "attachments",
   pagesDir: "quartz-custom/pages",

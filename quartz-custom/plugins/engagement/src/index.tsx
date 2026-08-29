@@ -199,6 +199,8 @@ const Engagement: QuartzComponentConstructor = () => {
 
 @media all and (max-width: 800px) {
   .eng-form, .eng-row--name { max-width: 100%; }
+  /* Prevent Safari and Chrome on iOS from zooming the viewport on focus. */
+  .eng-input { font-size: 1rem; }
 }
 `
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T14:12:03.287Z",
+  "generatedAt": "2026-08-29T15:04:51.697Z",
   "categories": [],
   "notes": [
     {
@@ -21,6 +21,42 @@
       "attachments": [],
       "accent": "neutral",
       "zk": "3739",
+      "mocs": [],
+      "primaryMoc": null,
+      "isMoc": false,
+      "tags": []
+    },
+    {
+      "slug": "publishing-notebook-deploy",
+      "title": "Publishing from the Mac",
+      "sha256": "60fbcdb17316033d",
+      "attachments": [],
+      "accent": "neutral",
+      "zk": "2614",
+      "mocs": [],
+      "primaryMoc": null,
+      "isMoc": false,
+      "tags": []
+    },
+    {
+      "slug": "publishing-notebook-review",
+      "title": "Reviewing the public boundary",
+      "sha256": "178ceb96516ee8fa",
+      "attachments": [],
+      "accent": "neutral",
+      "zk": "6265",
+      "mocs": [],
+      "primaryMoc": null,
+      "isMoc": false,
+      "tags": []
+    },
+    {
+      "slug": "publishing-notebook-writing",
+      "title": "Writing in Obsidian",
+      "sha256": "87ac6b0d10436edd",
+      "attachments": [],
+      "accent": "neutral",
+      "zk": "8743",
       "mocs": [],
       "primaryMoc": null,
       "isMoc": false,
