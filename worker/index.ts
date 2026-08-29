@@ -131,7 +131,7 @@ async function readJson(
     offset += chunk.byteLength
   }
   try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes)
     const parsed = JSON.parse(text)
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? { data: parsed as Record<string, unknown> }
