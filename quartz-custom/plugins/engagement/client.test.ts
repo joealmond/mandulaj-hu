@@ -83,3 +83,40 @@ test("Turnstile loads only on interaction, not on page load", () => {
   assert.match(SRC, /toggle\.addEventListener\("click"/)
   assert.match(SRC, /firstBtn\.addEventListener\("click", openComposer\)/)
 })
+
+test("Turnstile retains and resets the exact widget after every request attempt", () => {
+  assert.match(
+    SRC,
+    /tsWidgetId\s*=\s*window\.turnstile\.render/,
+    "retain the ID returned by explicit rendering",
+  )
+  assert.match(
+    SRC,
+    /turnstile\?\.reset\(tsWidgetId\)/,
+    "reset the same widget instead of relying on an implicit first widget",
+  )
+  assert.ok(!/turnstile\?\.reset\(\)/.test(SRC), "never use an unscoped reset")
+
+  const finallyBlock = SRC.slice(
+    SRC.lastIndexOf("} finally {"),
+    SRC.lastIndexOf("btn.disabled = false"),
+  )
+  assert.match(finallyBlock, /tsToken\s*=\s*null/, "consume the token on every request outcome")
+  assert.match(
+    finallyBlock,
+    /reset\(tsWidgetId\)/,
+    "reset on success, rejection, and network error",
+  )
+})
+
+test("Turnstile reports expiration and widget errors without retaining a token", () => {
+  assert.match(SRC, /"expired-callback"\s*:\s*\(\)\s*=>\s*\{\s*tsToken\s*=\s*null/)
+  assert.match(SRC, /"error-callback"\s*:\s*\(\)\s*=>\s*\{\s*tsToken\s*=\s*null/)
+})
+
+test("engagement rewires after Quartz client-side navigation", () => {
+  assert.match(SRC, /document\.addEventListener\("nav", wireEngagement\)/)
+  assert.match(SRC, /function wireEngagement\(\)/)
+  assert.match(SRC, /if \(!root \|\| root\.dataset\.wired\) return/)
+  assert.match(SRC, /wireEngagement\(\);\s*\n\s*\}\)\(\);/)
+})

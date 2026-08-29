@@ -24,6 +24,7 @@ import {
   publicFrontmatter,
   replaceArtifacts,
   stableGeneratedAt,
+  stripObsidianFooter,
 } from "./sync-utils.js"
 import {
   c,
@@ -224,7 +225,13 @@ async function main() {
     const raw = await fs.readFile(abs, "utf8")
     const { frontmatter, body } = splitFrontmatter(raw)
     if (!isPublished(frontmatter)) continue
-    candidates.push({ abs, rel: path.relative(vault, abs), frontmatter, body, raw })
+    candidates.push({
+      abs,
+      rel: path.relative(vault, abs),
+      frontmatter,
+      body: stripObsidianFooter(body),
+      raw,
+    })
   }
 
   if (candidates.length === 0) {
@@ -323,14 +330,15 @@ async function main() {
     const raw = await fs.readFile(abs, "utf8").catch(() => "")
     if (!raw) continue
     const { frontmatter, body } = splitFrontmatter(raw)
-    if (!isMoc(frontmatter, body)) continue
+    const publicBody = stripObsidianFooter(body)
+    if (!isMoc(frontmatter, publicBody)) continue
     mocPages.push({
       abs,
       title:
         typeof frontmatter.title === "string" && frontmatter.title.trim()
           ? frontmatter.title
           : path.basename(abs, ".md"),
-      body,
+      body: publicBody,
       published: publishedAbs0.has(abs),
     })
   }

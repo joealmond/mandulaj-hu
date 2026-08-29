@@ -1,117 +1,29 @@
 {
-  "generatedAt": "2026-08-25T21:15:28.130Z",
-  "categories": [
-    "Algorithm types",
-    "Algorithms",
-    "Prompt Engineering"
-  ],
+  "generatedAt": "2026-08-27T22:37:53.252Z",
+  "categories": [],
   "notes": [
     {
-      "slug": "algorithm-types",
-      "title": "Algorithm types",
-      "sha256": "641a785b5d083547",
+      "slug": "about",
+      "title": "About me",
+      "sha256": "9d9f1d6c6fae1dcd",
       "attachments": [],
-      "accent": "oxblood",
-      "zk": "3466",
-      "mocs": [
-        "Algorithms"
-      ],
-      "primaryMoc": "Algorithms",
-      "isMoc": true,
-      "tags": []
-    },
-    {
-      "slug": "algorithms",
-      "title": "Algorithms",
-      "sha256": "214c0c4d283a312c",
-      "attachments": [],
-      "accent": "ochre",
-      "zk": "6987",
-      "mocs": [
-        "Algorithm types"
-      ],
-      "primaryMoc": "Algorithm types",
-      "isMoc": true,
-      "tags": []
-    },
-    {
-      "slug": "brute-force-algorithm",
-      "title": "Brute-force algorithm",
-      "sha256": "87e73f791be7e1ae",
-      "attachments": [],
-      "accent": "oxblood",
-      "zk": "5593",
-      "mocs": [
-        "Algorithm types",
-        "Algorithms"
-      ],
-      "primaryMoc": "Algorithm types",
-      "isMoc": false,
-      "tags": []
-    },
-    {
-      "slug": "copilot-tips",
-      "title": "Copilot Tips",
-      "sha256": "54b52074570c38f8",
-      "attachments": [],
-      "accent": "vermilion",
-      "zk": "8008",
-      "mocs": [
-        "Prompt Engineering"
-      ],
-      "primaryMoc": "Prompt Engineering",
-      "isMoc": false,
-      "tags": []
-    },
-    {
-      "slug": "hashing-algorithm",
-      "title": "Hashing algorithm",
-      "sha256": "071c019902833e3f",
-      "attachments": [],
-      "accent": "oxblood",
-      "zk": "9059",
-      "mocs": [
-        "Algorithm types",
-        "Algorithms"
-      ],
-      "primaryMoc": "Algorithm types",
+      "accent": "neutral",
+      "zk": "2862",
+      "mocs": [],
+      "primaryMoc": null,
       "isMoc": false,
       "tags": []
     },
     {
       "slug": "index",
       "title": "József Mandula",
-      "sha256": "319e24c9c4bc98f5",
+      "sha256": "f0a2f1de4d5b6c6f",
       "attachments": [],
       "accent": "neutral",
       "zk": "3739",
       "mocs": [],
       "primaryMoc": null,
       "isMoc": false,
-      "tags": []
-    },
-    {
-      "slug": "projects",
-      "title": "Projects",
-      "sha256": "3cf9e1a540a5ee37",
-      "attachments": [],
-      "accent": "neutral",
-      "zk": "1703",
-      "mocs": [],
-      "primaryMoc": null,
-      "isMoc": false,
-      "tags": []
-    },
-    {
-      "slug": "prompt-engineering",
-      "title": "Prompt Engineering",
-      "sha256": "9d8f438429a7d76e",
-      "attachments": [],
-      "accent": "vermilion",
-      "zk": "1209",
-      "mocs": [],
-      "primaryMoc": null,
-      "isMoc": true,
       "tags": []
     }
   ],

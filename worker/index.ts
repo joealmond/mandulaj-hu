@@ -2,14 +2,16 @@
  * mandulaj.hu — static site + API, one Worker.
  *
  * Static assets are served by Cloudflare directly and are free and unlimited;
- * only `/api/*` invokes this script (see `run_worker_first` in wrangler.jsonc),
- * so page views cost nothing against the free request budget.
+ * only `/api/*` and the two legacy `/index_hu` spellings invoke this script
+ * (see `run_worker_first` in wrangler.jsonc), so normal page views cost nothing
+ * against the free request budget.
  *
  * Everything here degrades safely: without a D1 binding the endpoints return
  * an empty-but-valid shape rather than erroring, so the site keeps working if
  * the database is missing or a migration has not run yet.
  */
 import {
+  allowedTurnstileHostnames,
   bad,
   esc,
   isRateLimited,
@@ -30,6 +32,14 @@ const MAX_LINKS = 2
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
+
+    if (
+      (url.pathname === "/index_hu" || url.pathname === "/index_hu/") &&
+      (request.method === "GET" || request.method === "HEAD")
+    ) {
+      url.pathname = "/"
+      return Response.redirect(url.toString(), 301)
+    }
 
     if (!url.pathname.startsWith("/api/")) {
       return env.ASSETS.fetch(request)
@@ -320,16 +330,17 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
   if (links > MAX_LINKS) return bad("Too many links")
 
   const ip = request.headers.get("cf-connecting-ip") ?? "0.0.0.0"
-  const expectedHostname = new URL(env.SITE_ORIGIN).hostname
-  if (
-    !(await verifyTurnstile(
-      env.TURNSTILE_SECRET_KEY,
-      body.turnstileToken,
-      ip,
-      expectedHostname,
-      "comment",
-    ))
-  ) {
+  const verdict = await verifyTurnstile(
+    env.TURNSTILE_SECRET_KEY,
+    body.turnstileToken,
+    ip,
+    allowedTurnstileHostnames(env, request),
+    "comment",
+  )
+  if (!verdict.ok) {
+    // The reason is logged, never returned: it tells an attacker which of the
+    // three checks they tripped. The reader gets one undifferentiated message.
+    console.warn("turnstile rejected:", verdict.reason)
     return bad("Verification failed — reload and try again", 403)
   }
 

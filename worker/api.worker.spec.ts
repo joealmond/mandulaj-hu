@@ -23,6 +23,15 @@ describe("API Worker", () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
+  it("redirects the legacy Hungarian portfolio route and preserves its query", async () => {
+    for (const path of ["/index_hu?from=portfolio", "/index_hu/?from=portfolio"]) {
+      const response = await fetchApi(path, { redirect: "manual" })
+
+      expect(response.status).toBe(301)
+      expect(response.headers.get("location")).toBe("https://mandulaj.hu/?from=portfolio")
+    }
+  })
+
   it("keeps visitor-specific like state out of shared caches", async () => {
     await env.DB.prepare("INSERT INTO likes (slug, count, updated_at) VALUES (?, ?, ?)")
       .bind("algorithms", 7, Date.now())

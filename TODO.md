@@ -29,6 +29,10 @@ place; the verification baseline is recorded in Git rather than copied here.
       Rollback tests prove a failed promotion restores every live artifact.
 - [x] **Reject attachment destination collisions.** Referenced attachments use
       stable vault-path hashes, and duplicate basenames are regression-tested.
+- [x] **Keep Obsidian template footers private.** A terminal `### Links:` block
+      paired with the vault's 12-digit note ID is removed at the sync boundary,
+      before link rewriting and MOC/category resolution. Focused and end-to-end
+      tests preserve ordinary article sections named “Links.”
 - [x] **Stop publicly caching visitor-specific like state.** `GET /api/likes`
       uses a private cache policy, covered in the Workers-runtime suite.
 
@@ -92,39 +96,79 @@ place; the verification baseline is recorded in Git rather than copied here.
 
 ## 1. Before anything else
 
-- [ ] **⚠ Check whether mail on `mandulaj.hu` is live.** Send a mail to
-      `hello@mandulaj.hu` from Gmail and wait 24h. - No bounce means a server _accepted_ it — something is live and quietly
-      swallowing mail. That is not proof it is safe to break. - Current records: `MX 1 mandulaj-hu.mail.protection.outlook.com`,
-      `MX 10 mail.domdom.hu`, `TXT MS=ms45896177`,
-      `TXT v=spf1 include:spf.protection.outlook.com -all`
-- [ ] **⚠ Find out which address your registrar (domdom) sends renewal notices
-      to.** If it is `something@mandulaj.hu` and that mailbox is a black hole,
-      you can lose the domain. This risk exists today and is unrelated to the
-      site.
-- [x] ~~Decide whether the seeded notes should stay published.~~ **Reverted** —
-      all four vault notes are back to their original state and the vault
-      contains zero `publish:` flags. You add them yourself.
-- [ ] Publish your first real note: open it in Obsidian, press the
-      **Toggle publish** hotkey, then the **Publish site** button.
-- [ ] Publish at least one MOC page if you want categories — a category only
-      exists when its MOC page is itself published.
+- [x] **⚠ Check whether mail on `mandulaj.hu` is live.** It is not. Gmail
+      received repeated `451 4.4.4` deferrals from Microsoft stating that the
+      hosted tenant has no mail-enabled subscriptions. Live DNS still points
+      first to `mandulaj-hu.mail.protection.outlook.com`, with `mail.domdom.hu`
+      as fallback, and SPF still authorizes Microsoft.
+- [x] ~~Choose a replacement domain-mail provider.~~ **Resolved: no domain
+      email.** Use the existing Gmail privately for accounts and renewal
+      notices, publish no email address on the site, and configure
+      `mandulaj.hu` to reject both inbound mail and spoofed outbound mail.
+- [x] **⚠ Verify the registrar renewal contact.** Domdom lists the existing
+      Gmail as the registered-owner contact for `mandulaj.hu`; no address
+      change is needed before the DNS cutover.
+- [ ] Update any other external account that still uses an `@mandulaj.hu`
+      address to the existing Gmail.
+- [x] ~~Decide whether the seeded notes should stay published.~~ **Resolved:**
+      the technical/MOC notes are private again. Only the Welcome and About me
+      notes are published, both sourced from `2 Areas/Tech blog/` in Obsidian.
+- [x] Publish the first intentional pages: Welcome (`/`) and About me
+      (`/about`), both through the vault boundary.
+- [x] ~~Publish at least one MOC page.~~ **Not for launch:** no MOC/category is
+      public while the site intentionally contains only Welcome and About me.
 
 ## 2. Cloudflare account setup
 
-- [ ] `wrangler login`
-- [ ] `wrangler d1 create mandulaj`
-- [ ] Paste the returned `database_id` into `wrangler.jsonc`
+- [x] `wrangler login`
+- [x] `wrangler d1 create mandulaj`
+- [x] Paste the returned `database_id` into `wrangler.jsonc`
       (replaces `PLACEHOLDER_RUN_WRANGLER_D1_CREATE`)
-- [ ] `npm run db:migrate` — applies every pending migration remotely
-- [ ] Create a Turnstile widget for `mandulaj.hu`
-- [ ] Put the **site** key in `.env` as `TURNSTILE_SITE_KEY` (public, baked into HTML)
-- [ ] `wrangler secret put TURNSTILE_SECRET_KEY` (never in the repo)
-- [ ] `wrangler secret put VISITOR_SALT` — generate at least 32 random bytes;
-      do not rotate it without intentionally resetting existing likes
+- [x] `npm run db:migrate` — applies every pending migration remotely
+- [x] Verify the replacement Cloudflare API token — it is stored only in the
+      protected local token file and has `Account → Turnstile:Edit` for the
+      correct account.
+- [x] Create and validate the **final replacement Turnstile widget**
+      `mandulaj-comments-v2` for `mandulaj.hu`, `localhost`, `127.0.0.1`, and
+      the exact bootstrap `*.workers.dev` hostname. Its metadata and private
+      secret passed validation; the secret remained unchanged when the bootstrap
+      hostname was added after live error `110200` exposed the missing domain.
+- [x] Harden Turnstile verification — success **and** `action: "comment"` **and**
+      an allowed hostname; fails closed on every error path. The frontend retains
+      the exact widget ID and clears/resets single-use tokens after every request
+      outcome, and rewires after Quartz client-side navigation. All 228
+      Node/Worker tests and project checks pass.
+- [x] **Deploy once with comments still hidden.** Live at
+      `https://mandulaj-hu.jozsef-mandula.workers.dev` — 0 turnstile meta tags,
+      so the form never reveals itself and nothing can be submitted.
+- [x] Store the validated **final replacement widget secret** as the Worker
+      binding `TURNSTILE_SECRET_KEY`, overwriting the stale value. The exact
+      Worker target and resulting binding name were verified after the write.
+- [x] `wrangler secret put VISITOR_SALT` — 48 random bytes, set 2026-08-27.
+      Likes verified working in production: count persists and toggles.
+- [x] Put the **final replacement public site key** in the ignored `.env` as
+      `TURNSTILE_SITE_KEY` and rebuild locally. All 222 tests passed, the build
+      and privacy audit passed, and all 10 generated meta tags match the key.
+- [x] Deploy the site-key-enabled build and confirm the `*.workers.dev` URL
+      serves it. Version `0c3fd8f3-29db-4a36-9ad3-db7f35f6bb68` is live, its
+      homepage has exactly the approved site key, `/api/comments` is healthy,
+      engagement initializes after both direct and client-side navigation, and
+      Obsidian-only Links/ID footers are absent from every published article.
+- [x] Post real comments on the `*.workers.dev` URL and confirm they store —
+      three user-entered comments and two approved end-to-end test comments are
+      visible through the live API/UI.
+- [x] Verify that replaying one freshly accepted real Turnstile token is
+      rejected. A query-gated live probe submitted one fresh token twice: the
+      first request created exactly one comment and the identical replay
+      returned `403`. The temporary probe was then removed.
+- [x] Delete the superseded `mandulaj-comments` widget after the replacement
+      passed live validation. A read-only inventory confirms that only
+      `mandulaj-comments-v2` remains.
+- [x] After the DNS cutover, pin `TURNSTILE_HOSTNAMES` to `mandulaj.hu` in
+      `wrangler.jsonc`; bootstrap `*.workers.dev` remains read-only.
 - [ ] `wrangler secret put TELEGRAM_BOT_TOKEN` — reuse the hermes bot
 - [ ] `wrangler secret put TELEGRAM_CHAT_ID` — use a **separate chat or topic**
       so comment pings do not interleave with hermes
-- [ ] `npm run deploy` and confirm the `*.workers.dev` URL serves the site
 - [ ] Post a test comment on the deployed site and confirm the Telegram ping arrives
 
 ## 3. Repository
@@ -141,32 +185,70 @@ place; the verification baseline is recorded in Git rather than copied here.
 
 Do this **after** step 1 and after the site is confirmed working on `*.workers.dev`.
 
-- [ ] Add `mandulaj.hu` to Cloudflare (free plan; registrar stays at domdom)
-- [ ] **⚠ Verify Cloudflare's import scan captured every existing record** —
-      compare against `dig mandulaj.hu ANY` before touching nameservers.
-      Especially `MX`, `SPF`, and the `MS=` TXT.
-- [ ] Switch nameservers at domdom to Cloudflare's
-- [ ] Add the Worker custom domain `mandulaj.hu` (and `www` if wanted)
-- [ ] Confirm mail still behaves exactly as before the change
-- [ ] Confirm the old Netlify deployment is no longer serving
+- [x] Add `mandulaj.hu` to Cloudflare (free plan; registrar stays at domdom).
+      The zone is active and authoritative on Cloudflare.
+- [x] **⚠ Compare Cloudflare's import scan against a complete pre-cutover DNS
+      snapshot.** Domdom's authenticated record list confirmed the apex and
+      `www` Netlify records plus the dead root and `office` Microsoft/domdom mail
+      records. Cloudflare found the web records and root mail records but missed
+      all four `office` mail records; no non-mail record was missed.
+- [x] Stage the explicit no-mail policy in Cloudflare before switching
+      nameservers: removed the imported Microsoft/Domdom MX, autodiscover,
+      Microsoft SPF, and `MS=` records; added null MX (`@ MX 0 .`),
+      `v=spf1 -all`, and `_dmarc TXT "v=DMARC1; p=reject"`. The temporary
+      Netlify apex and `www` web records remained temporarily for a no-downtime
+      handoff.
+- [x] Switch nameservers at domdom to Cloudflare's assigned
+      `adele.ns.cloudflare.com` and `dave.ns.cloudflare.com`. The old Domdom
+      DNSSEC delegation was disabled first; the `.hu` registry now delegates to
+      Cloudflare with no stale DS record. Re-enable DNSSEC through Cloudflare
+      after the site and certificate are stable.
+- [x] Add the Worker custom domain `mandulaj.hu`. The temporary Netlify apex A
+      record was removed immediately before attaching the hostname; Cloudflare
+      DNS now points the apex to its edge and HTTPS is active.
+- [x] Move `www` entirely onto Cloudflare. An active 301 Redirect Rule preserves
+      paths and query strings, and the proxied CNAME now targets `mandulaj.hu`
+      instead of Netlify. A live response contains only Cloudflare headers.
+- [x] Confirm authoritative `dig MX/TXT mandulaj.hu` shows null MX (`0 .`),
+      restrictive SPF (`v=spf1 -all`), and rejecting DMARC
+      (`v=DMARC1; p=reject`); mail to the domain now fails immediately.
+- [x] Confirm Cloudflare DNSSEC is active. The DS record submitted at Domdom
+      (key tag 2371, algorithm 13, digest type 2) is now visible through public
+      resolvers and matches Cloudflare's generated digest.
+- [x] Retire the old Netlify deployment. Project `mandulajhussg` is disabled
+      (reversible) and its direct `*.netlify.app` URL now returns 404; neither
+      `mandulaj.hu` nor `www` depends on it.
 
 ## 5. Mobile publishing
 
-- [ ] `mkdir -p ~/Documents/Base/.github/workflows`
-- [ ] `cp deploy/vault-publish.yml ~/Documents/Base/.github/workflows/publish.yml`
-- [ ] Add `CLOUDFLARE_API_TOKEN` as an Actions secret on the **vault** repo
-      (scopes: Workers Scripts Edit, D1 Edit)
-- [ ] Add `CLOUDFLARE_ACCOUNT_ID` as an Actions secret on the vault repo
-- [ ] Add `SITE_REPO_TOKEN` to the vault repo: a fine-grained token limited to
-      `mandulaj-hu`, with Contents: Read and write. It is required for both a
-      public and private site repo because the workflow records generated
-      artifacts across repositories after deployment
+- [x] Create `~/Documents/Base/.github/workflows` and install the reviewed
+      workflow as `publish.yml` (vault commit `e0f330a`). The workflow remains
+      inert until its restricted Actions secrets are configured.
+- [x] Add `CLOUDFLARE_API_TOKEN` as an encrypted Actions secret on the
+      **vault** repo. It is the account-owned token
+      `mandulaj-hu-github-actions`, limited to D1 Write and Workers Scripts
+      Write on this Cloudflare account.
+- [x] Add `CLOUDFLARE_ACCOUNT_ID` as an encrypted Actions secret on the vault
+      repo.
+- [x] Add `SITE_REPO_TOKEN` to the vault repo: fine-grained token
+      `base-vault-publish-mandulaj-hu`, limited to the `mandulaj-hu` repository
+      with Contents: Read and write (plus GitHub's required Metadata: Read).
+      It expires 2027-08-29.
+- [x] Add the current public `TURNSTILE_SITE_KEY` as a vault-repository Actions
+      variable, so mobile builds keep the verified comment form enabled.
+- [x] Run the configured workflow manually end to end. `Publish site #2`
+      checked out both repositories, synced the two Obsidian pages, passed the
+      build/privacy gates, deployed to Cloudflare, and reported success using
+      vault `e9a9cba` and site `d7b07c1`.
+- [x] Replace the Node-20 GitHub Action revisions that produced a deprecation
+      warning with immutable official Node-24 revisions (`actions/checkout`
+      v7.0.1 and `actions/setup-node` v7.0.0).
 - [ ] Test: edit a published note on mobile, let obsidian-git push, confirm the
       Action runs and the site updates
 
 ## 6. Desktop publishing
 
-- [ ] Obsidian → Settings → Editor → **Properties in document: Visible**, so
+- [x] Obsidian → Settings → Editor → **Properties in document: Visible**, so
       frontmatter is editable as a properties panel
 - [ ] Install the **Shell commands** Obsidian plugin
 - [ ] Add a **Toggle publish** command with a hotkey:
@@ -182,7 +264,9 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 - [ ] Register `mandulaj.hu` at [webmention.io](https://webmention.io)
 - [ ] Put `WEBMENTION_IO_TOKEN` and `WEBMENTION_DOMAIN` in `.env`
 - [ ] Connect Mastodon / Bluesky / GitHub at [brid.gy](https://brid.gy)
-- [ ] `npm run webmentions:send -- --dry` on a note with outbound links
+- [x] `npm run webmentions:send -- --dry` against the current published notes:
+      two outbound candidates were inspected, neither advertised a webmention
+      endpoint, and no request was sent.
 
 ## 8. Decisions still open
 
@@ -211,29 +295,29 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       location was an invisible second rule that made moves and cross-device
       publishing harder to predict. ADR-017 records the remaining risk and the
       default-deny metadata, attachment, link, plan, and audit controls.
-- [ ] **Graph view renders only the current node.** Verified 2026-08-26: the
-      data is correct (`contentIndex.json` has the right inbound/outbound links,
-      e.g. `hashing-algorithm` 1 out / 2 in), the config is normal
-      (`depth: 1`), a canvas is created, and pixi.js and d3 both load 200. It
-      still draws a single dot on every page. Not caused by our changes — the
-      mobile removal script does not fire on desktop (`matchMedia` false, graph
-      still in the DOM). Upstream `@quartz-community/graph`. Backlinks give the
-      same information and do work, so this is cosmetic.
-- [ ] **Redirects from the old portfolio.** Still needs the URL list. Priority:
-      anything with external inbound links, then anything posted publicly
-      (LinkedIn, GitHub profile), then top organic pages. Send them and they
-      get mapped in `wrangler.jsonc`. - [x] ~~The 404 fallback is no longer just an apology~~ — it now carries
+- [x] ~~**Graph view renders only the current node.**~~ **Resolved in the live
+      two-page launch build:** `contentIndex.json` contains the reciprocal
+      Welcome/About links, the production desktop canvas renders two differently
+      coloured nodes and their connecting edge, and the console is clean. The
+      graph remains deliberately absent on mobile.
+- [x] ~~**Redirects from the old portfolio.**~~ **Resolved from the live old
+      site inventory:** it was a one-page portfolio whose navigation used hash
+      anchors; `/index_hu` was its only alternate page route. Both
+      `/index_hu` spellings now return a production 301 to `/` while preserving
+      query parameters. No invented route list is needed.
+- [x] ~~The 404 fallback is no longer just an apology~~ — it now carries
       search and the recent-notes list. The 404 page type hardcodes the
       `minimal` frame, which renders no rails; overridden to `default`.
 
 ## 9. Content
 
-- [ ] Fill in real projects: notes under `Projects/` in the vault with
-      `type: project`, `year`, `stack`, `link`, `description`
-- [ ] Decide which MOC pages to publish — each published MOC becomes a public
-      category, and its title becomes a public label
-- [ ] Replace the placeholder copy in `quartz-custom/pages/index.md`
-- [ ] Replace the scaffolding copy in `quartz-custom/pages/projects.md`
+- [x] ~~Fill in real projects for launch.~~ **Not for launch:** publish project
+      notes later, one at a time from Obsidian, when their write-ups are ready.
+- [x] ~~Decide which MOC pages to publish for launch.~~ **None:** categories stay
+      empty until a future MOC is deliberately ready for public release.
+- [x] Remove the repo-owned home/projects Markdown pages. Welcome and About me
+      now originate only in Obsidian, so the repository cannot bypass the vault
+      publishing boundary with hand-maintained public pages.
 
 ## 10. Deferred / nice to have
 

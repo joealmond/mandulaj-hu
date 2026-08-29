@@ -15,6 +15,7 @@
  *     single file, in the original head order so the cascade is preserved.
  *  6. Strips an invalid `aria-expanded` off the explorer container (upstream).
  */
+import "./env.js"
 import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
 import path from "node:path"
@@ -117,6 +118,39 @@ function markLongTitles(html: string): string {
 }
 
 /**
+ * Turnstile SITE keys look like `0x4AAAAAAA…`; the documented test keys use the
+ * `1x`/`2x`/`3x` prefixes. Anything else is not a site key.
+ *
+ * This guard exists because a Cloudflare API token (`cfut_…`) was once pasted
+ * into TURNSTILE_SITE_KEY and published as a meta tag on every page. Cloudflare
+ * hands out several credential types from the same dashboard and nothing about
+ * them says which slot they belong in, so the only safe assumption is that an
+ * unrecognised value is a credential rather than a site key.
+ *
+ * Fails the build rather than skipping injection: silently dropping the key
+ * would leave comments mysteriously off, which is the failure mode that hid the
+ * unloaded .env for so long.
+ */
+const TURNSTILE_SITE_KEY_RE = /^[0-3]x[A-Za-z0-9_-]{20,}$/
+
+export function assertTurnstileSiteKey(key: string): void {
+  if (!key) return // Unset is a supported state: the comment form stays hidden.
+  if (TURNSTILE_SITE_KEY_RE.test(key)) return
+
+  const looksLikeCredential = /^(cfut_|cfsk_|v1\.0-)/.test(key)
+  throw new Error(
+    `TURNSTILE_SITE_KEY does not look like a Turnstile site key.\n` +
+      `  got:      ${key.slice(0, 6)}… (${key.length} chars)\n` +
+      `  expected: 0x4AAAAAAA… (or a 1x/2x/3x test key)\n` +
+      (looksLikeCredential
+        ? `  This looks like a Cloudflare API token or secret. It would have been\n` +
+          `  published in the HTML of every page. Revoke it if it is real.\n`
+        : "") +
+      `  The site key is in the Turnstile dashboard next to the secret key.`,
+  )
+}
+
+/**
  * Injects the Turnstile SITE key (public, not a secret) as a meta tag.
  *
  * It has to reach the browser somehow and the component is bundled at build
@@ -198,9 +232,7 @@ async function collectHtml(dir: string, out: string[] = []): Promise<string[]> {
   return out
 }
 
-const turnstileKey = (process.env.TURNSTILE_SITE_KEY ?? "").trim()
-
-async function addFeedDiscovery(baseUrl: string) {
+async function addFeedDiscovery(baseUrl: string, turnstileKey: string) {
   const tag =
     `<link rel="alternate" type="application/rss+xml" ` +
     `title="József Mandula" href="https://${baseUrl}/index.xml"/>` +
@@ -244,13 +276,24 @@ async function addFeedDiscovery(baseUrl: string) {
   )
 }
 
-const baseUrl = await readConfigBaseUrl()
-if (!baseUrl) {
-  console.error(c.red("✗ baseUrl missing from quartz.config.yaml"))
-  process.exit(1)
+async function main() {
+  const turnstileKey = (process.env.TURNSTILE_SITE_KEY ?? "").trim()
+  assertTurnstileSiteKey(turnstileKey)
+
+  const baseUrl = await readConfigBaseUrl()
+  if (!baseUrl) {
+    console.error(c.red("✗ baseUrl missing from quartz.config.yaml"))
+    process.exit(1)
+  }
+  await filterFeed(baseUrl)
+  await writeRobots(baseUrl)
+  await addFeedDiscovery(baseUrl, turnstileKey)
+  await bundleCss()
+  await copyHeaders()
 }
-await filterFeed(baseUrl)
-await writeRobots(baseUrl)
-await addFeedDiscovery(baseUrl)
-await bundleCss()
-await copyHeaders()
+
+// Importing this module exposes its validation helpers without touching the
+// generated site. The post-build work only runs through `npm run finalize`.
+if (process.argv[1] && path.resolve(process.argv[1]).endsWith("postbuild.ts")) {
+  await main()
+}

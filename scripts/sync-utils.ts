@@ -42,6 +42,23 @@ export function publicFrontmatter(
   return output
 }
 
+/**
+ * Remove the vault's template-only navigation footer from public prose.
+ *
+ * Older Zettel notes end with a `### Links:` block and a 12-digit creation ID.
+ * Both are useful inside Obsidian, but neither is article content. Requiring
+ * both markers keeps an ordinary article section named "Links" publishable.
+ */
+export function stripObsidianFooter(body: string): string {
+  if (!/(?:^|\r?\n)[ \t]*\d{12}[ \t]*(?:\r?\n)*$/.test(body)) return body
+
+  const headings = [...body.matchAll(/(?:^|\r?\n)### Links:[ \t]*(?=\r?\n)/g)]
+  const footer = headings.at(-1)
+  if (!footer || footer.index === undefined) return body
+
+  return body.slice(0, footer.index).replace(/[ \t]*(?:\r?\n)*$/, "\n")
+}
+
 /** Keep generated metadata byte-stable when its public payload did not change. */
 export function stableGeneratedAt(
   previous: unknown,

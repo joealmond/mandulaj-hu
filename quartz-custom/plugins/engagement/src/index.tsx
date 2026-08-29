@@ -204,6 +204,7 @@ const Engagement: QuartzComponentConstructor = () => {
 
   Component.afterDOMLoaded = `
 (() => {
+  function wireEngagement() {
   const root = document.querySelector(".eng");
   if (!root || root.dataset.wired) return;
   root.dataset.wired = "1";
@@ -401,6 +402,7 @@ const Engagement: QuartzComponentConstructor = () => {
   const siteKey = document.querySelector('meta[name="turnstile-site-key"]')?.content;
   let tsReady = false;
   let tsToken = null;
+  let tsWidgetId = null;
 
   function loadTurnstile() {
     if (tsReady || !siteKey) return;
@@ -411,12 +413,23 @@ const Engagement: QuartzComponentConstructor = () => {
     s.defer = true;
     s.onload = () => {
       try {
-        window.turnstile.render(tsBox, {
+        tsWidgetId = window.turnstile.render(tsBox, {
           sitekey: siteKey,
           action: "comment",
           theme: "auto",
           callback: (t) => { tsToken = t; },
+          "expired-callback": () => {
+            tsToken = null;
+            noteEl.textContent = "Verification expired — try again.";
+          },
+          "error-callback": () => {
+            tsToken = null;
+            noteEl.textContent = "Verification unavailable — reload and try again.";
+          },
         });
+        // The ID is public widget state, not a credential. Keeping it lets us
+        // reset this exact widget after each single-use token is submitted.
+        tsBox.dataset.turnstileWidgetId = String(tsWidgetId);
       } catch (e) {}
     };
     document.head.append(s);
@@ -461,8 +474,6 @@ const Engagement: QuartzComponentConstructor = () => {
       bodyEl.value = "";
       markFilled(bodyEl);
       noteEl.textContent = "Posted.";
-      tsToken = null;
-      try { window.turnstile?.reset(); } catch (e) {}
       await load();
       // Posting is the one case where a form should stay open — people often
       // have a second thought straight after.
@@ -472,6 +483,13 @@ const Engagement: QuartzComponentConstructor = () => {
     } catch (e) {
       noteEl.textContent = "Network problem — try again.";
     } finally {
+      // Turnstile tokens are single-use even when our API rejects the request.
+      // Clear and reset after every network attempt so a retry always receives
+      // a fresh token and targets the widget that minted the submitted token.
+      tsToken = null;
+      if (tsWidgetId !== null) {
+        try { window.turnstile?.reset(tsWidgetId); } catch (e) {}
+      }
       btn.disabled = false;
     }
   });
@@ -480,6 +498,13 @@ const Engagement: QuartzComponentConstructor = () => {
     const ok = await Promise.all([loadLikes(), load()]);
     if (ok.some(Boolean)) root.hidden = false;
   })();
+  }
+
+  // Component modules are imported once, while Quartz replaces page content
+  // on every client-side navigation. Wire the new engagement root each time;
+  // the per-root data flag above prevents duplicate listeners.
+  document.addEventListener("nav", wireEngagement);
+  wireEngagement();
 })();
 `
   return Component

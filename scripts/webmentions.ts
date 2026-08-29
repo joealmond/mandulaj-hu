@@ -10,6 +10,7 @@
  * previous cache in place (or an empty list) and let the build continue. A
  * third-party service being unreachable must never fail a deploy.
  */
+import "./env.js"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { c } from "./lib.js"

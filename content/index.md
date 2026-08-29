@@ -1,21 +1,19 @@
 ---
-description: "Notes on backend architecture, TypeScript, and learning in public."
+description: "A small public notebook about software, systems, and what I learn while building them."
 publish: true
 title: "József Mandula"
 slug: index
 tags: []
+accent: neutral
 ---
 
-I build things with TypeScript — Angular on the front, NestJS and AWS behind it.
+Welcome. This is my small public notebook about software, systems, and what I learn while building them.
 
-This is where I keep notes I've decided are worth finishing. Most of what I write stays private; what's here has been deliberately published, one note at a time.
+Most of my notes stay private in Obsidian. The pages that appear here are the ones I have chosen to shape and share. I am starting quietly, with a clean slate, and I will add useful notes over time.
 
-## Recent
-
-Everything on this site is a note from my own vault, published on purpose rather than posted on a schedule. Links between notes are real links — follow them sideways rather than chronologically.
+If you would like to know who is behind the site, start with [[about|About me]].
 
 ## Elsewhere
 
-- [Projects](projects)
-- [RSS](/index.xml)
 - [GitHub](https://github.com/joealmond)
+- [RSS](https://mandulaj.hu/index.xml)
