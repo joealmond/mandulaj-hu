@@ -1,4 +1,7 @@
-# Citizen Code of Conduct
+# Upstream Quartz citizen code of conduct
+
+> This document is retained from the upstream Quartz repository for reference.
+> It describes the Quartz community, not a separate mandulaj.hu community.
 
 ## 1. Purpose
 

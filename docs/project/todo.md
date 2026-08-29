@@ -1,7 +1,7 @@
-# TODO
+# Project TODO
 
 Everything still open, grouped by what blocks what. Finished work is described
-in [ADR.md](ADR.md); a few items here are struck through because they were
+in the [architecture decisions](architecture-decisions.md); a few items here are struck through because they were
 decided and implemented after this file was first written.
 
 Items marked **⚠** can break something if done carelessly.
@@ -183,6 +183,7 @@ place; the verification baseline is recorded in Git rather than copied here.
       arrives with the correct deep link.
 - [x] Add like alerts to the same Telegram PM. A new like reports the post title
       and authoritative total; removing a like is silent.
+      A production like probe was received successfully on 2026-08-29.
 - [x] Add a `Moderate or reply` URL button to comment alerts. Its random
       per-comment capability opens a no-cache/no-index confirmation page where
       the owner can post a labelled reply or hide the complete comment thread.
@@ -368,5 +369,9 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       16px text so iOS does not auto-zoom. Verified at 390, 430, and 800 px with
       no horizontal overflow.
 - [ ] Run a production Lighthouse performance/accessibility audit. Paused until
-      the required Chrome DevTools MCP connector is available; the web-performance
-      audit skill explicitly requires that connector rather than a substitute.
+      a fresh Codex task: Chrome DevTools MCP was installed and enabled on
+      2026-08-29, but MCP tools are loaded only when a task/session starts.
+- [ ] Build the sanitized, one-way private Obsidian comment mirror described in
+      [Private comment mirror in Obsidian](comment-mirror.md). D1 remains
+      authoritative; no email addresses, capability tokens, or visitor/rate-limit
+      identifiers may enter the vault.

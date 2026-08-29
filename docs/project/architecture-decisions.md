@@ -1,11 +1,11 @@
-# Architecture Decisions
+# Architecture decisions
 
 Why this site is built the way it is, what lives where, and which parts are
 stock Quartz versus written for this project.
 
-Companion documents: [README.md](README.md) is how to _use_ it,
-[CLAUDE.md](CLAUDE.md) is the operational gotchas that will bite during
-maintenance, [TODO.md](TODO.md) is what is still open. This file is the _why_.
+Companion documents: the [operations guide](operations.md) is how to _use_ it,
+the [maintenance gotchas](maintenance-gotchas.md) cover operational traps, and
+the [project TODO](todo.md) records what is still open. This file is the _why_.
 
 ---
 
@@ -75,7 +75,7 @@ attachment tracing, a pre-deploy plan, and both audits.
 
 Both exit non-zero and abort the build. Neither ever warns and continues. The
 frontmatter boundary and other critical primitives have regression coverage;
-TODO.md tracks the remaining end-to-end negative audit cases.
+The project TODO tracks the remaining end-to-end negative audit cases.
 
 ## ADR-004 — Cloudflare, not Vercel
 
@@ -272,7 +272,7 @@ header remains the only solid one.
 component, promoted to full screen by CSS. That is the only place a dialog earns
 its keep.
 
-**Two framework details this exposed**, both recorded in CLAUDE.md: a layout
+**Two framework details this exposed**, both recorded in the maintenance gotchas: a layout
 `group` renders as `.flex-component`, not by its group name, and Quartz writes
 `align-self: center` as an **inline** style on every group child — which no
 stylesheet rule can beat, so the darkmode toggle centred itself against the full
@@ -400,7 +400,7 @@ migrations/               ordered D1 schema migrations
 quartz-custom/
   theme/custom.scss      the Kassák theme
   theme/_accents.generated.scss   GENERATED per-page accent CSS
-  og/card.ts             satori OG card (plain objects, no JSX — see CLAUDE.md)
+  og/card.ts             satori OG card (plain objects, no JSX — see maintenance gotchas)
   pages/                 repo-owned pages: home, projects, _headers
   plugins/               local Quartz plugins (see table below)
   data/webmentions.json  fetched at build time
@@ -505,4 +505,4 @@ workflow (written, not yet run).
 server — production will be better.
 
 **Not yet done:** everything requiring your Cloudflare account, the DNS cutover,
-and the open design questions. See [TODO.md](TODO.md).
+and the open design questions. See the [project TODO](todo.md).

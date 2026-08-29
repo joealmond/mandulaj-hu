@@ -1,10 +1,11 @@
-# CLAUDE.md
+# Maintenance gotchas
 
 Hard-won gotchas for `mandulaj.hu`. Read this before changing the build, the
 publish pipeline, or the theme.
 
-The _reasoning_ behind the architecture lives in [ADR.md](ADR.md); open work is
-in [TODO.md](TODO.md). This file is the set of traps — things that cost real
+The _reasoning_ behind the architecture lives in the
+[architecture decisions](architecture-decisions.md); open work is in the
+[project TODO](todo.md). This file is the set of traps — things that cost real
 time once and should not cost it twice.
 
 ## Context
