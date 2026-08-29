@@ -224,13 +224,25 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 - [x] Create `~/Documents/Base/.github/workflows` and install the reviewed
       workflow as `publish.yml` (vault commit `e0f330a`). The workflow remains
       inert until its restricted Actions secrets are configured.
-- [ ] Add `CLOUDFLARE_API_TOKEN` as an Actions secret on the **vault** repo
-      (scopes: Workers Scripts Edit, D1 Edit)
-- [ ] Add `CLOUDFLARE_ACCOUNT_ID` as an Actions secret on the vault repo
-- [ ] Add `SITE_REPO_TOKEN` to the vault repo: a fine-grained token limited to
-      `mandulaj-hu`, with Contents: Read and write. It is required for both a
-      public and private site repo because the workflow records generated
-      artifacts across repositories after deployment
+- [x] Add `CLOUDFLARE_API_TOKEN` as an encrypted Actions secret on the
+      **vault** repo. It is the account-owned token
+      `mandulaj-hu-github-actions`, limited to D1 Write and Workers Scripts
+      Write on this Cloudflare account.
+- [x] Add `CLOUDFLARE_ACCOUNT_ID` as an encrypted Actions secret on the vault
+      repo.
+- [x] Add `SITE_REPO_TOKEN` to the vault repo: fine-grained token
+      `base-vault-publish-mandulaj-hu`, limited to the `mandulaj-hu` repository
+      with Contents: Read and write (plus GitHub's required Metadata: Read).
+      It expires 2027-08-29.
+- [x] Add the current public `TURNSTILE_SITE_KEY` as a vault-repository Actions
+      variable, so mobile builds keep the verified comment form enabled.
+- [x] Run the configured workflow manually end to end. `Publish site #2`
+      checked out both repositories, synced the two Obsidian pages, passed the
+      build/privacy gates, deployed to Cloudflare, and reported success using
+      vault `e9a9cba` and site `d7b07c1`.
+- [x] Replace the Node-20 GitHub Action revisions that produced a deprecation
+      warning with immutable official Node-24 revisions (`actions/checkout`
+      v7.0.1 and `actions/setup-node` v7.0.0).
 - [ ] Test: edit a published note on mobile, let obsidian-git push, confirm the
       Action runs and the site updates
 
