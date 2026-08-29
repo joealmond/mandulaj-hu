@@ -243,21 +243,35 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
 - [x] Replace the Node-20 GitHub Action revisions that produced a deprecation
       warning with immutable official Node-24 revisions (`actions/checkout`
       v7.0.1 and `actions/setup-node` v7.0.0).
-- [ ] Test: edit a published note on mobile, let obsidian-git push, confirm the
-      Action runs and the site updates
+- [x] Re-run the upgraded mobile workflow. `Publish site` run
+      `33253527438` completed successfully on 2026-08-29: sync, privacy audit,
+      build, and Cloudflare deployment all passed with the Node-24 actions.
+- [x] Choose the supported mobile workflow: Obsidian Sync carries phone edits
+      to the Mac; desktop Obsidian Git is the Git bridge. Phone-side Git stays
+      disabled because Obsidian Sync does not carry `.git`. The desktop keeps
+      its existing 60-minute auto commit-and-sync delay.
+- [x] Test the first half: edit a published note on mobile and confirm Obsidian
+      Sync delivers it to the Mac. `About me.md` arrived with the new sentence
+      intact on 2026-08-29.
+- [ ] Test the second half: let desktop Obsidian Git commit and push the synced
+      mobile edit, then confirm the Action runs and the site updates.
 
 ## 6. Desktop publishing
 
 - [x] Obsidian → Settings → Editor → **Properties in document: Visible**, so
       frontmatter is editable as a properties panel
-- [ ] Install the **Shell commands** Obsidian plugin
-- [ ] Add a **Toggle publish** command with a hotkey:
+- [x] Install and enable **Shell commands** v0.23.0 by taitava.
+- [x] Add a **Toggle publish** command with the `⌘⇧P` hotkey:
       `scripts/obsidian-toggle-publish.sh "{{file_path:absolute}}"`
-- [ ] Point a second command at
+- [x] Point a second, confirmation-gated **Publish site** command at
       `/path/to/myblog/scripts/publish-from-obsidian.sh`
-- [ ] Set stdout and stderr to **Notification** so failures surface as a toast
-- [ ] Enable its ribbon icon, and optionally a hotkey
-- [ ] Publish once from the button end to end
+- [x] Set stdout and stderr to **Notification** so failures surface as a toast.
+- [x] Keep full-site publish off a hotkey; Shell commands 0.23.0 does not expose
+      per-command ribbon buttons, so use the command palette. The per-note
+      toggle has `⌘⇧P`.
+- [x] Publish once from Obsidian end to end. The command completed and
+      Cloudflare recorded deployment `f8adea09-8d2f-4e17-ba19-795361294b14`
+      at 2026-08-29 13:02:43 UTC.
 
 ## 7. Webmentions and Bridgy
 

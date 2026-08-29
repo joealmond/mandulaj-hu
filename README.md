@@ -125,10 +125,10 @@ nameservers**, then add the Worker custom domain.
 
 Two plugins, one setting.
 
-|                    | Why                                                          |
-| ------------------ | ------------------------------------------------------------ |
-| **Shell commands** | Runs the publish and toggle scripts. Not installed yet.      |
-| **obsidian-git**   | Already installed — it is what makes mobile publishing work. |
+|                    | Why                                                                     |
+| ------------------ | ----------------------------------------------------------------------- |
+| **Shell commands** | Runs the desktop publish and toggle scripts.                            |
+| **obsidian-git**   | Backs up the private vault and bridges Obsidian Sync changes to GitHub. |
 
 **The setting** — Obsidian hides frontmatter by default:
 
@@ -140,7 +140,7 @@ Then add two commands under Settings → Shell commands:
 # Toggle publish  (give it a hotkey)
 /path/to/myblog/scripts/obsidian-toggle-publish.sh "{{file_path:absolute}}"
 
-# Publish site  (give it a ribbon icon)
+# Publish site  (run it from the command palette)
 /path/to/myblog/scripts/publish-from-obsidian.sh
 ```
 
@@ -406,22 +406,39 @@ all still apply. Nothing is bypassed.
      so you see "✓ Published" or the audit failure as a toast.
    - **Events** tab (optional): tick nothing for button-only, or see "fully
      automatic" below.
-4. In the command's **ribbon** setting, enable the icon. You now have a button
-   in the left ribbon. Assign a hotkey too if you want (Settings → Hotkeys →
-   search "Publish site").
+4. Run it from the command palette: search for **Publish site**. Shell Commands
+   0.23.0 does not provide a command-specific ribbon button. Keep the full-site
+   command off a hotkey so publishing remains an explicit, confirmed action.
 
 Press it. It syncs, verifies, builds, deploys to Cloudflare, then commits.
 
-## Publish from Obsidian — mobile
+## Publish after editing in Obsidian — mobile
 
-Obsidian mobile cannot run shell commands, node, or wrangler, so a mobile
-trigger has to be server-side. It uses the vault repo you already push to:
+The supported mobile workflow uses **Obsidian Sync**, with the Mac as the bridge
+to GitHub. Do not enable Obsidian Git on the phone: Obsidian Sync transfers the
+vault files but not the hidden `.git` repository, so the mobile plugin reports
+"cannot find Git repository".
 
 ```
-edit on another device → Git pushes base_note_vault
+edit and save on phone
+      → Obsidian Sync copies the change to the Mac
+      → desktop Obsidian Git commits and pushes base_note_vault
       → GitHub Action checks out vault + site
-      → sync → audit → build → wrangler deploy      ~2 min
+      → sync → audit → build → wrangler deploy      ~2 min after the push
 ```
+
+Desktop Obsidian Git is configured to **auto commit-and-sync after file edits
+stop**, with a 60-minute delay. Saving the note on the phone is therefore the
+only mobile action. Keep Obsidian running on the Mac when prompt publishing is
+important. If the Mac is asleep or Obsidian is closed, the edit remains in
+Obsidian Sync and the overdue commit-and-sync runs the next time Obsidian opens.
+
+This design has an intentional constraint: GitHub cannot read Obsidian's
+private Sync service. Running the workflow manually from the GitHub mobile app
+only redeploys the latest vault commit; it cannot include an edit that has not
+yet reached GitHub through the Mac. If the Mac is lost, restore the vault from
+Obsidian Sync on another computer, restore this repository, and run desktop
+commit-and-sync or **Publish site**.
 
 The workflow lives in `deploy/vault-publish.yml`. Install it into the **private
 vault repo** so no secret ever sits in this public one:
@@ -436,14 +453,10 @@ on that repo. Any Markdown push starts a cheap sync because a toggled note may
 live anywhere, but private-only changes stop before build and deployment when
 the generated public artifact is unchanged.
 
-This does not depend on Obsidian Sync. Sync can still move files between your
-devices, but GitHub cannot read Obsidian's private Sync service. A deployment
-starts only after some client commits and pushes the private vault repo:
-
-- desktop: Obsidian Git, a normal Git client, or the existing publish button;
-- mobile: Obsidian Git if it is reliable on that device, or edit/commit through
-  GitHub; if the client can only use Obsidian Sync, deployment waits until a
-  Git-capable device receives the change and pushes it.
+The GitHub Action itself does not depend on Obsidian Sync. It starts only after
+desktop Obsidian Git (or another desktop Git client) pushes the private vault
+repository. The desktop **Publish site** command remains the immediate manual
+path when the Mac is in front of you.
 
 The vault push is the source record. After a successful deployment, the Action
 commits only the generated public paths to the site repository and records both
