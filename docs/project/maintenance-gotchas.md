@@ -309,9 +309,10 @@ are easy to regress:
   default on mobile. Mobile a11y is 93 because of this one issue. The real fix
   is upstream: the attribute belongs on the disclosure button. Setting the
   explorer to `display: desktop-only` would also clear it.
-- **Mobile TBT is ~180ms**, dominated by the graph component. Both graphs were
-  kept at the owner's explicit request. Making the graph desktop-only would
-  recover most of it.
+- **The graph loader is intentionally wrapped.** `lazy-graph` keeps D3 and
+  PixiJS out of an ordinary mobile visit and exposes a **Load graph** button
+  below Backlinks. Its build deliberately fails if the pinned upstream loader
+  changes; inspect and update the wrapper rather than weakening that guard.
 
 ## Why Cloudflare, not Vercel
 

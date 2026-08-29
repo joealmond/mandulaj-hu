@@ -78,6 +78,12 @@ only when a graph container exists, or disable the graph entirely. Do not add a
 `preconnect` as the primary fix: it would accelerate an unnecessary mobile
 download rather than remove it.
 
+**Resolved 2026-08-29.** A local `lazy-graph` wrapper now puts the graph below
+Backlinks on every viewport. On phones it renders a **Load graph** button and
+does not request D3 or PixiJS until activation; desktop continues to load the
+graph automatically. This preserves access while removing the baseline's 538 KB
+from an ordinary mobile page load.
+
 ### P1 — add one `main` landmark
 
 Accessibility is 99/100 on both profiles. The only failed rule is

@@ -228,23 +228,27 @@ container clean when the explorer's own script writes to it again.
 **Result.** Mobile accessibility is 100 and the tree survives on phones. The
 patch is small and belongs upstream; delete it if a fix lands.
 
-## ADR-014 — The graph is removed on mobile, not hidden
+## ADR-014 — The graph is on demand on mobile
 
-**Decision.** On viewports under 800px the graph container is removed from the
-DOM before the graph's script initialises.
+**Decision.** Backlinks come first in the right rail and the graph follows them.
+On viewports up to 800px, the graph is represented by an accessible **Load
+graph** button. D3 and PixiJS are fetched and the graph is initialized only
+after the visitor activates that button. On wider viewports the graph still
+loads automatically.
 
 **Why `desktop-only` was not enough.** It is presentational. Measured on a phone
-viewport, the hidden graph still pulled and executed **pixi.js (637ms) and d3
-(95ms) from a CDN** — for a component that is invisible and, at ~4px nodes with
-no 44px touch target, unusable. Hiding it recovered nothing.
+viewport, the hidden graph still downloaded D3 and PixiJS—538 KB in the
+production Lighthouse baseline—for a component the visitor could not use.
 
-**Result.** pixi bootup 637ms → 153ms, mobile TBT 170ms → 100ms. The residual
-153ms is pixi's module import, which happens whether or not a container exists;
-removing it entirely would mean disabling the graph outright.
+**Implementation constraint.** The upstream graph plugin downloads its CDN
+libraries before it checks whether a graph container exists. The local
+`lazy-graph` wrapper patches that pinned loader during the plugin build and
+fails the build if the expected upstream marker changes. This keeps a package
+update from silently restoring the unwanted mobile download.
 
-**Also worth recording:** the graph is the one component that reintroduces
-third-party runtime requests. It does so via dynamic import, so it does not
-appear in the built HTML and a grep for CDN hosts will not find it.
+**Result.** Mobile visitors retain access to the graph without paying its
+network or execution cost unless they ask for it. The button is restored after
+Quartz client-side navigation. Backlinks remain the primary mobile navigation.
 
 ## ADR-015 — Search lives in the rail, not in a modal
 

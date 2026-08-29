@@ -230,16 +230,13 @@ plugins:
     layout:
       position: right
       priority: 50
-  # Desktop only. At phone width the nodes render around 4px and nothing comes
-  # close to a 44px touch target, so it is a decoration nobody can operate —
-  # for ~180ms of blocking time. Backlinks stay on mobile: they are the actual
-  # sideways navigation the graph only illustrates.
-  - source: "@quartz-community/graph"
+  # Always follows Backlinks. Phones render an explicit Load graph control;
+  # D3 and PixiJS are fetched only after that control is activated.
+  - source: ./quartz-custom/plugins/lazy-graph
     enabled: true
     layout:
       position: right
-      priority: 10
-      display: desktop-only
+      priority: 60
   - source: "@quartz-community/breadcrumbs"
     enabled: true
     layout:

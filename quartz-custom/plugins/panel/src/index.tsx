@@ -259,34 +259,6 @@ const Panel: QuartzComponentConstructor = () => {
 .pn-tag-n { opacity: .6; margin-left: .3em; }
 `
 
-  /*
-   * Remove the graph from the DOM on small screens, BEFORE its own script runs.
-   *
-   * `display: desktop-only` only hides it. Measured on a phone viewport the
-   * graph still pulled and executed pixi.js (637ms) and d3 (95ms) — from a CDN,
-   * at runtime, for a component that is invisible and, at ~4px nodes with no
-   * 44px touch target, unusable anyway. Hiding it recovered nothing.
-   *
-   * Taking the container out of the DOM first means the graph's initialiser
-   * finds nothing and returns. Backlinks stay: they are the real sideways
-   * navigation the graph only pictures.
-   */
-  Component.beforeDOMLoaded = `
-(() => {
-  try {
-    if (!window.matchMedia("(max-width: 800px)").matches) return;
-    const drop = () => {
-      for (const el of document.querySelectorAll(".graph")) el.remove();
-    };
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", drop, { once: true });
-    } else {
-      drop();
-    }
-  } catch (e) {}
-})();
-`
-
   Component.afterDOMLoaded = `
 (() => {
   const KEY = "panel-pane";

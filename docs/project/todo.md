@@ -314,14 +314,11 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       mirrored by a MutationObserver so the explorer's own script cannot put it
       back on the container. Mobile accessibility is **100**. Small enough to
       send upstream — see `quartz-custom/plugins/panel/src/index.tsx`.
-- [x] ~~**Keep both graphs?**~~ **Resolved: desktop only.** At phone width the
-      nodes are ~4px and nothing reaches a 44px touch target. - Worth knowing: `display: desktop-only` alone recovered **nothing** —
-      it only hides. The graph still pulled and executed pixi.js (637ms) and
-      d3 (95ms) from a CDN. The container is now removed from the DOM before
-      the graph initialises, which took pixi from 637ms to 153ms and mobile
-      TBT from 170ms to 100ms. - The remaining 153ms is pixi's module import, which happens whether or
-      not a container exists. Eliminating it entirely means disabling the
-      graph outright. - Backlinks stay on mobile — the real sideways navigation.
+- [x] ~~**Keep both graphs?**~~ **Resolved: graph after Backlinks, on demand on
+      mobile.** At phone width, an accessible **Load graph** button appears
+      below Backlinks. D3 and PixiJS are not requested until it is activated;
+      desktop keeps the automatically loaded graph. The control is restored
+      after client-side navigation.
 - [x] ~~**Folder allowlist or toggle only?**~~ **Resolved: toggle only.** Folder
       location was an invisible second rule that made moves and cross-device
       publishing harder to predict. ADR-017 records the remaining risk and the
@@ -330,7 +327,7 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       two-page launch build:** `contentIndex.json` contains the reciprocal
       Welcome/About links, the production desktop canvas renders two differently
       coloured nodes and their connecting edge, and the console is clean. The
-      graph remains deliberately absent on mobile.
+      graph is available on mobile through its on-demand control.
 - [x] ~~**Redirects from the old portfolio.**~~ **Resolved from the live old
       site inventory:** it was a one-page portfolio whose navigation used hash
       anchors; `/index_hu` was its only alternate page route. Both
@@ -375,9 +372,10 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       records three mobile and three desktop Lighthouse runs, direct DevTools
       traces, accessibility-tree inspection, network evidence, and verified
       source locations.
-- [ ] Stop loading D3 and PixiJS on mobile, where the graph is deliberately
-      absent. Re-run the production audit after changing the graph package's
-      load guard or disabling the graph.
+- [x] Stop loading D3 and PixiJS by default on mobile. The local `lazy-graph`
+      wrapper exposes the graph below Backlinks through a **Load graph** button
+      and fetches both libraries only after activation. Browser checks cover
+      first load, activation, client-side navigation, and desktop auto-load.
 - [ ] Add exactly one `main` landmark to each page frame and restore Lighthouse
       accessibility from 99 to 100.
 - [ ] Resolve overlapping `_headers` cache rules so content-hashed assets receive

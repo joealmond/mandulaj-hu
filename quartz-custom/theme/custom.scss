@@ -554,6 +554,26 @@ footer ul {
   gap: 1rem;
 }
 
+/* Backlinks and the graph are one vertical navigation sequence. Quartz's
+   tablet/mobile base lays right-rail components side by side, which makes both
+   too narrow and can push the graph out of view. */
+@media all and (max-width: 1200px) {
+  .page > #quartz-body .sidebar.right {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2rem;
+    width: 100%;
+  }
+
+  .page > #quartz-body .sidebar.right > * {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+  }
+}
+
 /* ── Mobile first: the rail collapses, the ID block stays ─────────────── */
 @media all and (max-width: 800px) {
   html,
