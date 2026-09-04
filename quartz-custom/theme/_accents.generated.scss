@@ -3,31 +3,103 @@
 // Per-page accent, derived deterministically from the slug.
 // ─────────────────────────────────────────────────────────────────────
 
-// uncategorised — 5 page(s)
-body[data-slug="about"],
-body[data-slug="index"],
-body[data-slug="publishing-notebook-deploy"],
-body[data-slug="publishing-notebook-review"],
-body[data-slug="publishing-notebook-writing"] {
-  --accent: #3A342B;
-  --accent-name: "neutral";
-  --secondary: #3A342B;
-  --tertiary: #3A342B;
-  --accent-wash: color-mix(in srgb, #3A342B 8%, transparent);
-  --accent-rule: color-mix(in srgb, #3A342B 55%, transparent);
+// vermilion — 1 page(s)
+body[data-slug="index"] {
+  --accent: #CD311D;
+  --accent-name: "vermilion";
+  --secondary: #CD311D;
+  --tertiary: #CD311D;
+  --accent-wash: color-mix(in srgb, #CD311D 8%, transparent);
+  --accent-rule: color-mix(in srgb, #CD311D 55%, transparent);
 }
 
 :root[saved-theme="dark"] {
-  body[data-slug="about"],
-  body[data-slug="index"],
-  body[data-slug="publishing-notebook-deploy"],
-  body[data-slug="publishing-notebook-review"],
+  body[data-slug="index"] {
+    --accent: #E24531;
+    --secondary: #E24531;
+    --tertiary: #E24531;
+    --accent-wash: color-mix(in srgb, #E24531 14%, transparent);
+    --accent-rule: color-mix(in srgb, #E24531 55%, transparent);
+  }
+}
+
+// verdigris — 1 page(s)
+body[data-slug="about"] {
+  --accent: #3F6B5F;
+  --accent-name: "verdigris";
+  --secondary: #3F6B5F;
+  --tertiary: #3F6B5F;
+  --accent-wash: color-mix(in srgb, #3F6B5F 8%, transparent);
+  --accent-rule: color-mix(in srgb, #3F6B5F 55%, transparent);
+}
+
+:root[saved-theme="dark"] {
+  body[data-slug="about"] {
+    --accent: #508879;
+    --secondary: #508879;
+    --tertiary: #508879;
+    --accent-wash: color-mix(in srgb, #508879 14%, transparent);
+    --accent-rule: color-mix(in srgb, #508879 55%, transparent);
+  }
+}
+
+// ultramarine — 1 page(s)
+body[data-slug="publishing-notebook-review"] {
+  --accent: #1F3FA8;
+  --accent-name: "ultramarine";
+  --secondary: #1F3FA8;
+  --tertiary: #1F3FA8;
+  --accent-wash: color-mix(in srgb, #1F3FA8 8%, transparent);
+  --accent-rule: color-mix(in srgb, #1F3FA8 55%, transparent);
+}
+
+:root[saved-theme="dark"] {
+  body[data-slug="publishing-notebook-review"] {
+    --accent: #5777E0;
+    --secondary: #5777E0;
+    --tertiary: #5777E0;
+    --accent-wash: color-mix(in srgb, #5777E0 14%, transparent);
+    --accent-rule: color-mix(in srgb, #5777E0 55%, transparent);
+  }
+}
+
+// aubergine — 1 page(s)
+body[data-slug="publishing-notebook-deploy"] {
+  --accent: #5B3A8C;
+  --accent-name: "aubergine";
+  --secondary: #5B3A8C;
+  --tertiary: #5B3A8C;
+  --accent-wash: color-mix(in srgb, #5B3A8C 8%, transparent);
+  --accent-rule: color-mix(in srgb, #5B3A8C 55%, transparent);
+}
+
+:root[saved-theme="dark"] {
+  body[data-slug="publishing-notebook-deploy"] {
+    --accent: #906DC3;
+    --secondary: #906DC3;
+    --tertiary: #906DC3;
+    --accent-wash: color-mix(in srgb, #906DC3 14%, transparent);
+    --accent-rule: color-mix(in srgb, #906DC3 55%, transparent);
+  }
+}
+
+// oxblood — 1 page(s)
+body[data-slug="publishing-notebook-writing"] {
+  --accent: #7A2540;
+  --accent-name: "oxblood";
+  --secondary: #7A2540;
+  --tertiary: #7A2540;
+  --accent-wash: color-mix(in srgb, #7A2540 8%, transparent);
+  --accent-rule: color-mix(in srgb, #7A2540 55%, transparent);
+}
+
+:root[saved-theme="dark"] {
   body[data-slug="publishing-notebook-writing"] {
-    --accent: #B8AF9C;
-    --secondary: #B8AF9C;
-    --tertiary: #B8AF9C;
-    --accent-wash: color-mix(in srgb, #B8AF9C 14%, transparent);
-    --accent-rule: color-mix(in srgb, #B8AF9C 55%, transparent);
+    --accent: #CC557B;
+    --secondary: #CC557B;
+    --tertiary: #CC557B;
+    --accent-wash: color-mix(in srgb, #CC557B 14%, transparent);
+    --accent-rule: color-mix(in srgb, #CC557B 55%, transparent);
   }
 }
 

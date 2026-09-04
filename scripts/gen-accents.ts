@@ -2,7 +2,7 @@
 /**
  * Generates the per-page accent stylesheet.
  *
- * The Kassák direction gives each page one of four accents. "Random" would be
+ * The Kassák direction gives each page one of six accents. "Random" would be
  * wrong: a note must not change colour between builds, or its identity flickers
  * and its OG card stops matching the page. So the accent is derived from a hash
  * of the slug — arbitrary-looking, identical forever, and stable across machines.
@@ -51,12 +51,6 @@ export const ACCENTS = {
   oxblood: { light: "#7A2540", dark: "#CC557B" },
 } as const
 
-/**
- * Uncategorised pages. Ink rather than a hue, so "no colour" reads as "not
- * filed" instead of implying a category that does not exist.
- */
-export const NEUTRAL = { light: "#3A342B", dark: "#B8AF9C" } as const
-
 export type AccentName = keyof typeof ACCENTS
 const NAMES = Object.keys(ACCENTS) as AccentName[]
 
@@ -81,23 +75,14 @@ function mix(hex: string, pct: number): string {
 
 export async function generateAccents(manifestPath = MANIFEST, outputPath = OUT) {
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8")) as {
-    // `accent` may be "neutral" for uncategorised pages, which is deliberately
-    // NOT an AccentName — the palette has six hues and neutral is the absence
-    // of one.
-    notes: { slug: string; accent?: AccentName | "neutral"; zk?: string }[]
+    // Accept old manifests too: neutral and missing values now get a hue.
+    notes: { slug: string; accent?: string; zk?: string }[]
   }
 
-  // The manifest is authoritative: sync.ts assigns accents (balanced, sticky,
-  // frontmatter-pinnable) and records them. accentFor() is only the fallback
-  // for a manifest written before accents existed.
   const grouped = new Map<AccentName, string[]>(NAMES.map((n) => [n, []]))
-  const neutral: string[] = []
   for (const { slug, accent } of manifest.notes) {
-    if (accent === "neutral" || !accent || !(accent in ACCENTS)) {
-      neutral.push(slug)
-      continue
-    }
-    grouped.get(accent as AccentName)!.push(slug)
+    const name = accent && Object.hasOwn(ACCENTS, accent) ? (accent as AccentName) : accentFor(slug)
+    grouped.get(name)!.push(slug)
   }
 
   const ids = manifest.notes
@@ -141,38 +126,11 @@ export async function generateAccents(manifestPath = MANIFEST, outputPath = OUT)
     )
   }
 
-  if (neutral.length) {
-    const sel = neutral.map((s) => `body[data-slug="${s}"]`).join(",\n")
-    lines.push(
-      `// uncategorised — ${neutral.length} page(s)`,
-      `${sel} {`,
-      `  --accent: ${NEUTRAL.light};`,
-      `  --accent-name: "neutral";`,
-      `  --secondary: ${NEUTRAL.light};`,
-      `  --tertiary: ${NEUTRAL.light};`,
-      `  --accent-wash: ${mix(NEUTRAL.light, 8)};`,
-      `  --accent-rule: ${mix(NEUTRAL.light, 55)};`,
-      `}`,
-      "",
-      `:root[saved-theme="dark"] {`,
-      `  ${sel.split("\n").join("\n  ")} {`,
-      `    --accent: ${NEUTRAL.dark};`,
-      `    --secondary: ${NEUTRAL.dark};`,
-      `    --tertiary: ${NEUTRAL.dark};`,
-      `    --accent-wash: ${mix(NEUTRAL.dark, 14)};`,
-      `    --accent-rule: ${mix(NEUTRAL.dark, 55)};`,
-      `  }`,
-      `}`,
-      "",
-    )
-  }
-
   lines.push("// Per-page display IDs (derived from slug, pinnable via `zk:`).", ...ids, "")
 
   await fs.writeFile(outputPath, lines.join("\n"), "utf8")
 
-  const summary =
-    NAMES.map((n) => `${n} ${grouped.get(n)!.length}`).join(" · ") + ` · neutral ${neutral.length}`
+  const summary = NAMES.map((n) => `${n} ${grouped.get(n)!.length}`).join(" · ")
   console.log(c.dim(`  accents → ${summary}`))
 }
 

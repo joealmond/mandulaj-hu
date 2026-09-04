@@ -6,7 +6,7 @@ publish: true
 title: Publishing from the Mac
 slug: publishing-notebook-deploy
 tags: []
-accent: neutral
+accent: aubergine
 ---
 
 Obsidian Sync carries edits between my devices. On the Mac, the vault’s Git integration records those file changes in a private repository. A separate publishing workflow reads that private source, rebuilds the approved public content, and deploys the result to Cloudflare.

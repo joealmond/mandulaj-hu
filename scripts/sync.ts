@@ -17,7 +17,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { createHash } from "node:crypto"
 import config from "./publish.config.js"
-import { ACCENTS, generateAccents, type AccentName } from "./gen-accents.js"
+import { ACCENTS, accentFor, generateAccents, type AccentName } from "./gen-accents.js"
 import {
   attachmentName,
   claimAttachment,
@@ -70,8 +70,8 @@ interface SyncedNote {
   sourcePath: string
   sha256: string
   attachments: string[]
-  /** Page accent, derived from the category. "neutral" = uncategorised. */
-  accent: AccentName | "neutral"
+  /** Page accent: explicit pin, category, or a stable slug-derived hue. */
+  accent: AccentName
   /** Titles of every published MOC that links to this note. */
   mocs: string[]
   /** The MOC shown in the header block and driving the accent. */
@@ -130,20 +130,9 @@ function resolveMocs(
   return memberOf
 }
 
-/**
- * Colour follows category, and nothing else.
- *
- * Every note under one MOC shares that MOC's accent, so a topic is
- * recognisable before a word is read. With six accents and more categories,
- * two categories will eventually collide — colour is a hint, not a unique key.
- *
- * A note in NO category gets `neutral` rather than a random hue. Giving
- * uncategorised pages an arbitrary colour would say "this is a category" when
- * it isn't, and with few categories it also floods the site with one hue.
- * Absence of colour now carries meaning: this note is unfiled.
- */
-function accentForMoc(moc: string | null): AccentName | "neutral" {
-  if (!moc) return "neutral"
+/** Published categories share a hue; uncategorised pages still have colour. */
+function accentForMoc(moc: string | null, slug: string): AccentName {
+  if (!moc) return accentFor(slug)
   const names = Object.keys(ACCENTS) as AccentName[]
   return names[hashSlug(moc) % names.length]
 }
@@ -456,9 +445,9 @@ async function main() {
     const colourKey = selfIsMoc ? title : primaryMoc
     const pinnedAccent = n.frontmatter.accent
     const accent =
-      typeof pinnedAccent === "string" && pinnedAccent in ACCENTS
+      typeof pinnedAccent === "string" && Object.hasOwn(ACCENTS, pinnedAccent)
         ? (pinnedAccent as AccentName)
-        : accentForMoc(colourKey)
+        : accentForMoc(colourKey, slug)
 
     /*
      * Hoist inline #hashtags into frontmatter `tags`, and drop lines that are
@@ -560,6 +549,12 @@ async function main() {
       typeof frontmatter.title === "string" && frontmatter.title.trim() ? frontmatter.title : slug
     pageFm.slug = slug
     pageFm.tags = pageTags
+    const pinned = frontmatter.accent
+    const accent =
+      typeof pinned === "string" && Object.hasOwn(ACCENTS, pinned)
+        ? (pinned as AccentName)
+        : accentForMoc(null, slug)
+    pageFm.accent = accent
     const fmLines = Object.entries(pageFm)
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => `${k}: ${serialiseYamlValue(v)}`)
@@ -568,9 +563,6 @@ async function main() {
       ? `---\n${fmLines.join("\n")}\n---\n\n${cleanedBody.trimStart()}`
       : cleanedBody.trimStart()
     await fs.writeFile(path.join(STAGING, `${slug}.md`), pageOut, "utf8")
-    const pinned = frontmatter.accent
-    const accent =
-      typeof pinned === "string" && pinned in ACCENTS ? (pinned as AccentName) : accentForMoc(null)
     synced.push({
       slug,
       title: typeof frontmatter.title === "string" ? frontmatter.title : slug,

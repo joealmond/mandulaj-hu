@@ -83,6 +83,16 @@ test("sync publishes only flagged notes, and nothing else leaks", () => {
 
     const note = fs.readFileSync(path.join(out, "published-note.md"), "utf8")
 
+    // A site with no published MOCs must still have coloured pages.
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(artifacts, ".publish-manifest.json"), "utf8"),
+    )
+    for (const entry of manifest.notes) {
+      assert.match(entry.accent, /^(vermilion|ochre|verdigris|ultramarine|aubergine|oxblood)$/)
+      const page = fs.readFileSync(path.join(out, `${entry.slug}.md`), "utf8")
+      assert.ok(page.includes(`accent: ${entry.accent}`), "page and manifest accents agree")
+    }
+
     // Private frontmatter never crosses the boundary.
     assert.ok(!note.includes("ACME Confidential"), "private property stripped")
     assert.ok(!note.includes("do-not-ship"), "private property stripped")

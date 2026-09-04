@@ -368,7 +368,8 @@ Three rules worth knowing:
   public category.
 - **Colour follows category.** Every note under one MOC shares its accent, so
   a topic is recognisable before you read a word. Notes in no category are
-  **neutral** — absence of colour means "unfiled", not "some other category".
+  assigned a stable hue from its slug. Every page has colour, including pages
+  without a published MOC. An explicit `accent` pin overrides either choice.
 - **Unfiled notes are shown, not hidden**, in the Categories pane. It tells you
   what you have published but never filed.
 

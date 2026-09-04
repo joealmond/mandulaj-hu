@@ -101,6 +101,17 @@ article p {
   text-wrap: pretty;
 }
 
+/* The homepage has a clear, coloured opening even before any MOCs exist. */
+body[data-slug="index"] article > p:first-child,
+body[data-slug="index"] article > .markdown-preview-view > p:first-child {
+  color: var(--accent);
+  font-family: var(--headerFont);
+  font-size: clamp(1.4rem, 1.1rem + 1vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.25;
+  max-width: 30ch;
+}
+
 /* Lists align to the paragraph spine rather than sitting 40px inside it. */
 article ul,
 article ol {

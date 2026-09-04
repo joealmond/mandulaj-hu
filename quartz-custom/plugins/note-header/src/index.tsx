@@ -12,7 +12,7 @@ import type {
  * page. It now carries the note's category (its MOC) and links to it, so the
  * boldest element tells you where you are and takes you somewhere.
  *
- * Uncategorised notes get the year instead, rendered in the neutral accent, so
+ * Uncategorised notes get the year instead, rendered in a stable page accent, so
  * "no colour" reads as "not filed" rather than implying a category.
  */
 const NoteHeader: QuartzComponentConstructor = () => {
