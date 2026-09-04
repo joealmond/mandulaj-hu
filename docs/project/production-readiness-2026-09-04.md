@@ -1,6 +1,6 @@
 # Production fixes — 2026-09-04
 
-The September review's seven findings are fixed in source. The release gate passes, and the production deployment dry run succeeds. Deployment status is recorded separately below.
+The September review's seven findings are fixed and deployed. The release gate, GitHub CI and live smoke checks pass. Deployment evidence is recorded below.
 
 ## Changes and evidence
 
@@ -40,6 +40,19 @@ The five published content files and their manifest were not changed or re-synce
 
 ## Deployment
 
-The owner authorized committing, pushing and deploying this release. Live verification and the deployed version will be recorded after deployment. The private-vault repository's installed workflow is separate from `deploy/vault-publish.yml`; updating this template does not change that other repository automatically.
+The owner authorized committing, pushing and deploying this release.
+
+- Release commit: `1c927557768d9f8a2dbead21a3cc8902184f8174`, pushed to `main`.
+- [GitHub release checks](https://github.com/joealmond/mandulaj-hu/actions/runs/33921233777): passed.
+- Deployed on 2026-09-04 at 21:29 UTC to [mandulaj.hu](https://mandulaj.hu).
+- Cloudflare version: `7bfda8bd-152b-46aa-99db-1f7afa556842`, confirmed serving 100% of traffic.
+- Previous version: `f2913cd9-b172-4496-8605-d46fc98dff62`.
+- The production deployment command reran the full release gate successfully before uploading.
+- Live HTML for all seven generated pages, including the custom 404, matched the local build byte for byte. The hashed stylesheet and Pagefind entry point also matched.
+- Live likes/comments reads returned 200 for published pages and 404 for missing pages, with `no-store`; legacy redirects preserved the query string. HTML/Pagefind revalidated, and the hashed stylesheet had one immutable cache policy.
+- Chrome at a 390px mobile viewport returned four search results, kept the input and clear control reachable, and cleared results correctly without horizontal overflow or console warnings/errors.
+- Production smoke checks were read-only; no test comments, likes or notifications were created.
+
+The private-vault repository's installed workflow is separate from `deploy/vault-publish.yml`; updating this template does not change that other repository automatically.
 
 These checks establish the behavior covered above. They are not a guarantee against every future defect or an exhaustive infrastructure penetration test.
