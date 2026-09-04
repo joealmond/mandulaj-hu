@@ -67,7 +67,7 @@ try {
 
   // 2 ─ Build. This runs both audits internally; a leak aborts here.
   step(2, TOTAL, "Build and verify")
-  run("npm", ["run", "build"])
+  run("npm", ["run", "verify"])
 
   // 3 ─ Show exactly what the private/public boundary produced.
   step(3, TOTAL, "Review publish plan")

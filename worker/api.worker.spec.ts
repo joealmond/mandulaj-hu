@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers"
 import { createExecutionContext } from "cloudflare:test"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import worker from "./index"
-import { isRateLimited } from "./lib"
+import { isRateLimited, rateLimitVisitor } from "./lib"
 
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>
 
@@ -42,8 +42,8 @@ describe("API Worker", () => {
     })
 
     expect(response.status).toBe(200)
-    expect(response.headers.get("cache-control")).toBe("private, max-age=30")
-    expect(await response.json()).toEqual({ slug: "algorithms", count: 7, liked: false })
+    expect(response.headers.get("cache-control")).toBe("no-store")
+    expect(await response.json()).toEqual({ slug: "algorithms", count: 0, liked: false })
   })
 
   it("does not grant CORS access to arbitrary workers.dev or lookalike origins", async () => {
@@ -96,6 +96,86 @@ describe("API Worker", () => {
       body: JSON.stringify({ slug: "does-not-exist" }),
     })
     expect(response.status).toBe(404)
+  })
+
+  it("rejects a reply if its thread is deleted during verification", async () => {
+    const parentId = crypto.randomUUID()
+    await env.DB.prepare(
+      `INSERT INTO comments (id, slug, name, body, status, is_owner, edit_token, created_at)
+       VALUES (?, 'algorithms', 'Reader', 'Parent', 'visible', 0, 'edit', 1)`,
+    )
+      .bind(parentId)
+      .run()
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const deleted = await fetchApi("/api/comments", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id: parentId, editToken: "edit" }),
+        })
+        expect(deleted.status).toBe(200)
+        return Response.json({ success: true, hostname: "mandulaj.hu", action: "comment" })
+      }),
+    )
+    const response = await fetchApi("/api/comments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        slug: "algorithms",
+        name: "Reader",
+        body: "Reply",
+        parentId,
+        turnstileToken: "valid",
+      }),
+    })
+    expect(response.status).toBe(409)
+    const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE parent_id = ?")
+      .bind(parentId)
+      .first<{ n: number }>()
+    expect(row?.n).toBe(0)
+  })
+
+  it("rejects reader and owner replies under an already hidden ancestor", async () => {
+    const rootId = crypto.randomUUID()
+    const parentId = crypto.randomUUID()
+    const moderationToken = crypto.randomUUID()
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO comments (id, slug, name, body, status, is_owner, created_at)
+        VALUES (?, 'algorithms', 'Reader', 'Root', 'hidden', 0, 1)`,
+      ).bind(rootId),
+      env.DB.prepare(
+        `INSERT INTO comments (id, slug, parent_id, name, body, status, is_owner, moderation_token, created_at)
+        VALUES (?, 'algorithms', ?, 'Reader', 'Old orphan', 'visible', 0, ?, 2)`,
+      ).bind(parentId, rootId, moderationToken),
+    ])
+    const verification = vi.fn()
+    vi.stubGlobal("fetch", verification)
+    const reader = await fetchApi("/api/comments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        slug: "algorithms",
+        name: "Reader",
+        body: "Reply",
+        parentId,
+        turnstileToken: "valid",
+      }),
+    })
+    expect(reader.status).toBe(400)
+    expect(verification).not.toHaveBeenCalled()
+    const owner = await fetchApi("/api/moderate", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        origin: "https://mandulaj.hu",
+      },
+      body: new URLSearchParams({ token: moderationToken, action: "reply", reply: "Owner reply" }),
+    })
+    expect(owner.status).toBe(409)
+    const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM comments").first<{ n: number }>()
+    expect(row?.n).toBe(2)
   })
 
   it("toggles a D1 like on and back off", async () => {
@@ -282,5 +362,93 @@ describe("API Worker", () => {
       }),
     })
     expect(response.status).toBe(403)
+  })
+})
+
+describe("production regressions", () => {
+  beforeEach(async () => {
+    await env.DB.batch(
+      ["rate_limit", "like_votes", "likes", "comments"].map((table) =>
+        env.DB.prepare(`DELETE FROM ${table}`),
+      ),
+    )
+  })
+  const like = async (liked: boolean, cookie = "", ua = "reader") =>
+    fetchApi("/api/likes", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "cf-connecting-ip": "203.0.113.55",
+        "user-agent": ua,
+        cookie,
+      },
+      body: JSON.stringify({ slug: "algorithms", liked }),
+    })
+
+  it("shares the quota across User-Agent and cookie changes", async () => {
+    const req = new IncomingRequest("https://mandulaj.hu/api/likes", {
+      headers: { "cf-connecting-ip": "203.0.113.55" },
+    })
+    const visitor = await rateLimitVisitor(req, env.VISITOR_SALT, "like")
+    await env.DB.batch(
+      Array.from({ length: 60 }, () =>
+        env.DB.prepare("INSERT INTO rate_limit VALUES (?, 'like', ?)").bind(visitor, Date.now()),
+      ),
+    )
+    expect((await like(true, "", "first-agent")).status).toBe(429)
+    expect((await like(true, "", "changed-agent")).status).toBe(429)
+  })
+
+  it("keeps concurrent retries idempotent and counts exactly the surviving votes", async () => {
+    const initial = await like(true)
+    const cookie = initial.headers.get("set-cookie")!.split(";")[0]
+    await like(true, "", "another-browser")
+    const removed = await Promise.all([like(false, cookie), like(false, cookie)])
+    expect(removed.map((r) => r.status)).toEqual([200, 200])
+    for (const r of removed) expect(await r.json()).toMatchObject({ count: 1, liked: false })
+    const added = await Promise.all([like(true, cookie), like(true, cookie)])
+    expect(added.map((r) => r.status)).toEqual([200, 200])
+    for (const r of added) expect(await r.json()).toMatchObject({ count: 2, liked: true })
+    const row = await env.DB.prepare("SELECT count FROM likes WHERE slug='algorithms'").first<{
+      count: number
+    }>()
+    const votes = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM like_votes WHERE slug='algorithms'",
+    ).first<{ count: number }>()
+    expect(row).toEqual(votes)
+  })
+
+  it("hides a reader-deleted thread and filters existing orphaned replies", async () => {
+    await env.DB.prepare(
+      "INSERT INTO comments (id,slug,name,body,edit_token,created_at) VALUES ('parent','algorithms','Reader','Parent','token',1)",
+    ).run()
+    await env.DB.prepare(
+      "INSERT INTO comments (id,slug,parent_id,name,body,created_at) VALUES ('reply','algorithms','parent','Reader','Reply',2)",
+    ).run()
+    const denied = await fetchApi("/api/comments", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "parent", editToken: "wrong" }),
+    })
+    expect(denied.status).toBe(403)
+    const deleted = await fetchApi("/api/comments", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "parent", editToken: "token" }),
+    })
+    expect(deleted.status).toBe(200)
+    expect(
+      await env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE status='visible'").first("n"),
+    ).toBe(0)
+    // Old deployments could leave a visible reply behind a hidden parent.
+    await env.DB.prepare("UPDATE comments SET status='visible' WHERE id='reply'").run()
+    const response = await fetchApi("/api/comments?slug=algorithms")
+    expect(response.headers.get("cache-control")).toBe("no-store")
+    expect(await response.json()).toEqual({ comments: [] })
+  })
+
+  it("does not expose engagement for unpublished pages", async () => {
+    for (const api of ["likes", "comments"])
+      expect((await fetchApi(`/api/${api}?slug=removed-page`)).status).toBe(404)
   })
 })

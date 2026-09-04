@@ -608,9 +608,10 @@ so the same browser can toggle its vote while different browsers/devices remain
 separate. Clearing cookies permits a new vote; reliably recognizing one human
 across devices would require accounts, which this site deliberately avoids.
 
-IP plus user agent is retained only as a scoped HMAC for rate limiting and for
-recognizing votes made by the previous implementation during migration.
-Rate-limit keys rotate daily and are pruned after 24 hours. Comments do not
+Rate limiting uses a scoped HMAC of Cloudflare's client IP, independent of
+User-Agent and cookies. Keys stay stable across midnight so quotas cannot reset
+inside a sliding window; their rows are pruned after 24 hours. IP plus User-Agent
+is used only to recognize legacy votes during migration. Comments do not
 retain a visitor key. Rotating `VISITOR_SALT` invalidates signed like cookies,
 so it requires a planned reset of `like_votes` and `likes`; otherwise old votes
 can no longer be toggled off.
@@ -803,6 +804,8 @@ served as a static asset. Add the route, then `npm run deploy`.
 
 - `npm run audit:all` — verifies content and output without rebuilding
 - `npm run check` — typecheck and formatting
+- `npm run verify` — checks, regression suites, full build, generated-page checks and dependency audit
+- `npm run deploy` — runs `verify` before deploying; does not sync the vault
 - `npm run webmentions:send -- --dry` — see what would be sent
 
 ## Configuration

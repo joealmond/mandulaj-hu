@@ -38,7 +38,11 @@ test("the client never uses innerHTML at all", () => {
 test("the like toggle is optimistic and reconciles", () => {
   // Reflects the click immediately...
   assert.match(SRC, /liked\s*=\s*!liked/, "optimistic flip")
-  assert.match(SRC, /localStorage/, "own state persisted locally")
+  assert.match(
+    SRC,
+    /JSON.stringify\(\{ slug, liked \}\)/,
+    "desired state sent for idempotent writes",
+  )
   // ...then trusts the server's answer.
   assert.match(SRC, /count\s*=\s*d\.count/, "server count wins after the request")
 })
@@ -81,7 +85,7 @@ test("Turnstile loads only on interaction, not on page load", () => {
 
   // And openComposer itself only runs from a click.
   assert.match(SRC, /toggle\.addEventListener\("click"/)
-  assert.match(SRC, /firstBtn\.addEventListener\("click", openComposer\)/)
+  assert.match(SRC, /firstBtn\.addEventListener\("click", openComposer[,)]/)
 })
 
 test("Turnstile retains and resets the exact widget after every request attempt", () => {

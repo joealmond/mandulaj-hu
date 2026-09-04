@@ -114,7 +114,7 @@ jobs:
           WEBMENTION_IO_TOKEN: ${{ secrets.WEBMENTION_IO_TOKEN }}
         # `build` runs the content audit BEFORE the build and the output audit
         # after. Either failing fails this job, and nothing is deployed.
-        run: npm run build
+        run: npm run verify
 
       - name: Deploy to Cloudflare
         id: deploy

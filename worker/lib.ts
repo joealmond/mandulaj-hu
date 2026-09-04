@@ -3,7 +3,12 @@
 export const json = (data: unknown, status = 200, extra: HeadersInit = {}) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", ...extra },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      ...extra,
+    },
   })
 
 export const bad = (message: string, status = 400) => json({ error: message }, status)
@@ -102,9 +107,19 @@ export async function likeVisitor(
   }
 }
 
-/** Daily key for short-lived rate-limit rows. */
-export function rateLimitScope(action: string, now = Date.now()): string {
-  return `rate:${action}:${Math.floor(now / 86_400_000)}`
+/** Stable across midnight so a sliding window cannot reset at the day boundary. */
+export function rateLimitScope(action: string): string {
+  return `rate:${action}`
+}
+
+/** Quotas depend only on Cloudflare's trusted IP, never caller-controlled UA/cookies. */
+export async function rateLimitVisitor(
+  req: Request,
+  secret: string,
+  action: string,
+): Promise<string> {
+  const ip = req.headers.get("cf-connecting-ip") ?? "0.0.0.0"
+  return hmacHex(secret, `${rateLimitScope(action)}|${ip}`)
 }
 
 /** Sliding-window limiter backed by D1. Returns true when the caller is over. */

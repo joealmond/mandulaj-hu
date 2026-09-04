@@ -376,9 +376,9 @@ Do this **after** step 1 and after the site is confirmed working on `*.workers.d
       wrapper exposes the graph below Backlinks through a **Load graph** button
       and fetches both libraries only after activation. Browser checks cover
       first load, activation, client-side navigation, and desktop auto-load.
-- [ ] Add exactly one `main` landmark to each page frame and restore Lighthouse
+- [x] Add exactly one `main` landmark to each page frame and restore Lighthouse
       accessibility from 99 to 100.
-- [ ] Resolve overlapping `_headers` cache rules so content-hashed assets receive
+- [x] Resolve overlapping `_headers` cache rules so content-hashed assets receive
       one immutable policy while HTML still revalidates.
 - [ ] Build the sanitized, one-way private Obsidian comment mirror described in
       [Private comment mirror in Obsidian](comment-mirror.md). D1 remains

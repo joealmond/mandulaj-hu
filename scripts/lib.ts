@@ -52,7 +52,10 @@ export function splitFrontmatter(raw: string): {
  * never synced. Matching the plugin keeps one definition of "published".
  */
 export function isPublished(frontmatter: Record<string, unknown>): boolean {
-  if (frontmatter.draft === true) return false
+  // Only an absent or explicitly false draft flag may cross the boundary.
+  // Obsidian text properties and malformed values must not publish a draft.
+  if (frontmatter.draft != null && frontmatter.draft !== false && frontmatter.draft !== "false")
+    return false
   return frontmatter.publish === true || frontmatter.publish === "true"
 }
 
@@ -107,6 +110,20 @@ export const WIKILINK_RE = /(!?)\[\[([^\]|#^]+)([#^][^\]|]*)?(?:\|([^\]]*))?\]\]
 /** `!?[text](target)`, external URLs excluded by the caller. */
 export const MDLINK_RE = /(!?)\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g
 
+/** Resolve the file separately from URL navigation, including PDF #page=N. */
+export function localLinkTarget(raw: string): { target: string; suffix: string } {
+  const split = raw.search(/[?#]/)
+  const pathname = split < 0 ? raw : raw.slice(0, split)
+  let target: string
+  try {
+    target = decodeURIComponent(pathname)
+  } catch {
+    // A literal percent in a filename is not necessarily URL encoding.
+    target = pathname
+  }
+  return { target, suffix: split < 0 ? "" : raw.slice(split) }
+}
+
 export function parseWikilinks(body: string): Wikilink[] {
   const out: Wikilink[] = []
   for (const m of body.matchAll(WIKILINK_RE)) {
@@ -139,7 +156,7 @@ export function parseMarkdownLinks(body: string): MarkdownLink[] {
     out.push({
       raw: m[0],
       text: m[2],
-      target: decodeURIComponent(target),
+      target: localLinkTarget(target).target,
       isEmbed: m[1] === "!",
     })
   }

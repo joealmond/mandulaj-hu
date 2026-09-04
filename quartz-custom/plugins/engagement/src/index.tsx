@@ -29,12 +29,18 @@ const Engagement: QuartzComponentConstructor = () => {
             of void belonging to neither the note nor the form. */}
         <div class="eng-footer">
           <span class="eng-ask">Useful?</span>
-          <button class="eng-like-btn" type="button" aria-pressed="false">
+          <button
+            class="eng-like-btn"
+            type="button"
+            aria-pressed="false"
+            aria-label="Like this note"
+          >
             <span class="eng-heart" aria-hidden="true">
               &#9829;
             </span>
             <span class="eng-count">0</span>
           </button>
+          <span class="eng-feedback" role="status" aria-live="polite"></span>
         </div>
 
         <div class="eng-comments">
@@ -134,6 +140,7 @@ const Engagement: QuartzComponentConstructor = () => {
    as it crosses 9 → 10. */
 .eng-count { letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .eng-pending { opacity: .55; }
+.eng-feedback { font-size: .8rem; color: var(--gray); }
 .eng-toggle[hidden] { display: none; }
 .eng-toggle { margin-top: 1rem; }
 
@@ -210,12 +217,13 @@ const Engagement: QuartzComponentConstructor = () => {
   const root = document.querySelector(".eng");
   if (!root || root.dataset.wired) return;
   root.dataset.wired = "1";
+  const listeners = new AbortController();
+  const signal = listeners.signal;
   const slug = root.dataset.slug;
 
   const API = "/api";
   const LS_NAME = "eng-name";
   const LS_TOKENS = "eng-tokens";
-  const LS_LIKED = "eng-liked:" + slug;
 
   const $ = (s) => root.querySelector(s);
   const likeBtn  = $(".eng-like-btn");
@@ -239,54 +247,63 @@ const Engagement: QuartzComponentConstructor = () => {
 
   /* ── Likes ─────────────────────────────────────────────────────────── */
 
-  let liked = store.get(LS_LIKED, false);
+  let liked = false;
   let count = 0;
   let inflight = false;
+  let likeReady = false;
+  const feedback = $(".eng-feedback");
 
   function paintLike() {
     likeBtn.setAttribute("aria-pressed", String(liked));
+    likeBtn.setAttribute("aria-label", (liked ? "Remove like" : "Like this note") + " (" + count + ")");
+    likeBtn.disabled = inflight || !likeReady;
     countEl.textContent = String(count);
     likeBtn.classList.toggle("eng-pending", inflight);
   }
 
   async function loadLikes() {
     try {
-      const r = await fetch(API + "/likes?slug=" + encodeURIComponent(slug));
+      const r = await fetch(API + "/likes?slug=" + encodeURIComponent(slug), { cache: "no-store" });
       if (!r.ok) return false;
       const d = await r.json();
+      if (signal.aborted) return false;
       count = d.count | 0;
-      liked = Boolean(d.liked) || liked;
+      liked = Boolean(d.liked);
+      likeReady = true;
       paintLike();
       return true;
     } catch (e) { return false; }
   }
 
   likeBtn.addEventListener("click", async () => {
-    if (inflight) return;
+    if (inflight || !likeReady) return;
+    const previous = { liked, count };
+    feedback.textContent = "";
     liked = !liked;
     count = Math.max(0, count + (liked ? 1 : -1));
-    store.set(LS_LIKED, liked);
     inflight = true;
     paintLike();
     try {
       const r = await fetch(API + "/likes", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ slug, liked }),
       });
-      if (r.ok) {
-        const d = await r.json();
-        count = d.count | 0;
-        liked = Boolean(d.liked);
-        store.set(LS_LIKED, liked);
-      }
+      const d = await r.json();
+      if (signal.aborted) return;
+      if (!r.ok) throw new Error(d.error || "Could not save your like. Try again.");
+      count = d.count | 0;
+      liked = Boolean(d.liked);
     } catch (e) {
-      /* keep the optimistic state; it reconciles on the next load */
+      if (signal.aborted) return;
+      liked = previous.liked;
+      count = previous.count;
+      feedback.textContent = e instanceof Error ? e.message : "Could not save your like. Try again.";
     } finally {
       inflight = false;
-      paintLike();
+      if (!signal.aborted) paintLike();
     }
-  });
+  }, { signal });
 
   /* ── Composer disclosure ───────────────────────────────────────────── */
 
@@ -313,8 +330,8 @@ const Engagement: QuartzComponentConstructor = () => {
   toggle.addEventListener("click", () => {
     if (composer.hidden) openComposer();
     else { composer.hidden = true; toggle.setAttribute("aria-expanded", "false"); }
-  });
-  firstBtn.addEventListener("click", openComposer);
+  }, { signal });
+  firstBtn.addEventListener("click", openComposer, { signal });
 
   /* ── Comments ──────────────────────────────────────────────────────── */
 
@@ -375,9 +392,15 @@ const Engagement: QuartzComponentConstructor = () => {
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ id: c.id, editToken: tokens[c.id] }),
             });
-            if (r.ok) { delete tokens[c.id]; store.set(LS_TOKENS, tokens); load(); }
-          } catch (e) { del.disabled = false; }
-        });
+            if (!r.ok) throw new Error("Could not delete the comment. Try again.");
+            const savedTokens = store.get(LS_TOKENS, {});
+            delete savedTokens[c.id]; store.set(LS_TOKENS, savedTokens);
+            if (signal.aborted) return;
+            if (!(await load())) throw new Error("Deleted. Reload to refresh the comments.");
+          } catch (e) {
+            if (!signal.aborted) feedback.textContent = e.message || "Could not delete the comment. Try again.";
+          } finally { del.disabled = false; }
+        }, { signal });
         li.append(del);
       }
 
@@ -391,9 +414,10 @@ const Engagement: QuartzComponentConstructor = () => {
 
   async function load() {
     try {
-      const r = await fetch(API + "/comments?slug=" + encodeURIComponent(slug));
+      const r = await fetch(API + "/comments?slug=" + encodeURIComponent(slug), { cache: "no-store" });
       if (!r.ok) return false;
       const d = await r.json();
+      if (signal.aborted) return false;
       render(d.comments || []);
       return true;
     } catch (e) { return false; }
@@ -409,11 +433,8 @@ const Engagement: QuartzComponentConstructor = () => {
   function loadTurnstile() {
     if (tsReady || !siteKey) return;
     tsReady = true;
-    const s = document.createElement("script");
-    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-    s.async = true;
-    s.defer = true;
-    s.onload = () => {
+    const renderWidget = () => {
+      if (signal.aborted || !root.isConnected) return;
       try {
         tsWidgetId = window.turnstile.render(tsBox, {
           sitekey: siteKey,
@@ -432,9 +453,26 @@ const Engagement: QuartzComponentConstructor = () => {
         // The ID is public widget state, not a credential. Keeping it lets us
         // reset this exact widget after each single-use token is submitted.
         tsBox.dataset.turnstileWidgetId = String(tsWidgetId);
-      } catch (e) {}
+      } catch (e) {
+        tsReady = false;
+        noteEl.textContent = "Verification unavailable — try again.";
+      }
     };
-    document.head.append(s);
+    if (window.turnstile) { renderWidget(); return; }
+    let script = document.querySelector('script[data-eng-turnstile]');
+    if (!script) {
+      script = document.createElement("script");
+      script.dataset.engTurnstile = "1";
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      document.head.append(script);
+    }
+    script.addEventListener("load", renderWidget, { once: true, signal });
+    script.addEventListener("error", () => {
+      script.remove(); tsReady = false;
+      noteEl.textContent = "Verification unavailable — try again.";
+    }, { once: true, signal });
   }
 
   // Marks a prefilled field as filled: :placeholder-shown cannot help when
@@ -443,7 +481,7 @@ const Engagement: QuartzComponentConstructor = () => {
   if (siteKey) {
     nameEl.value = store.get(LS_NAME, "") || "";
     markFilled(nameEl);
-    for (const el of [nameEl, bodyEl]) el.addEventListener("input", () => markFilled(el));
+    for (const el of [nameEl, bodyEl]) el.addEventListener("input", () => markFilled(el), { signal });
   } else {
     offEl.hidden = false;
   }
@@ -466,36 +504,47 @@ const Engagement: QuartzComponentConstructor = () => {
         body: JSON.stringify({ slug, name, body, turnstileToken: tsToken }),
       });
       const d = await r.json();
-      if (!r.ok) { noteEl.textContent = d.error || "That did not go through."; btn.disabled = false; return; }
+      if (!r.ok) { if (!signal.aborted) noteEl.textContent = d.error || "That did not go through."; return; }
 
       store.set(LS_NAME, name);
       const tokens = store.get(LS_TOKENS, {});
       tokens[d.id] = d.editToken;
       store.set(LS_TOKENS, tokens);
+      if (signal.aborted) return;
 
       bodyEl.value = "";
       markFilled(bodyEl);
       noteEl.textContent = "Posted.";
       await load();
+      if (signal.aborted) return;
       // Posting is the one case where a form should stay open — people often
       // have a second thought straight after.
       composer.hidden = false;
       toggle.hidden = false;
       toggle.setAttribute("aria-expanded", "true");
     } catch (e) {
-      noteEl.textContent = "Network problem — try again.";
+      if (!signal.aborted) noteEl.textContent = "Network problem — try again.";
     } finally {
       // Turnstile tokens are single-use even when our API rejects the request.
       // Clear and reset after every network attempt so a retry always receives
       // a fresh token and targets the widget that minted the submitted token.
       tsToken = null;
-      if (tsWidgetId !== null) {
+      if (!signal.aborted && tsWidgetId !== null) {
         try { window.turnstile?.reset(tsWidgetId); } catch (e) {}
       }
-      btn.disabled = false;
+      if (!signal.aborted) btn.disabled = false;
+    }
+  }, { signal });
+
+  window.addCleanup?.(() => {
+    listeners.abort(); delete root.dataset.wired;
+    form.querySelector(".eng-submit").disabled = false;
+    noteEl.textContent = "";
+    if (tsWidgetId !== null) {
+      try { window.turnstile?.remove(tsWidgetId); } catch (e) {}
     }
   });
-
+  paintLike();
   (async () => {
     const ok = await Promise.all([loadLikes(), load()]);
     if (ok.some(Boolean)) root.hidden = false;

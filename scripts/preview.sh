@@ -20,7 +20,7 @@ PORT="${PORT:-8799}"
 export TURNSTILE_SITE_KEY="${TURNSTILE_SITE_KEY:-1x00000000000000000000AA}"
 
 echo "→ applying local D1 migrations"
-npx wrangler d1 migrations apply mandulaj --local >/dev/null 2>&1 || true
+npx wrangler d1 migrations apply mandulaj --local
 
 # Sync first: the whole point of a local preview is to see what is in the vault
 # right now. `npm run build` alone only rebuilds whatever content/ already held.

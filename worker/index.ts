@@ -6,9 +6,8 @@
  * (see `run_worker_first` in wrangler.jsonc), so normal page views cost nothing
  * against the free request budget.
  *
- * Everything here degrades safely: without a D1 binding the endpoints return
- * an empty-but-valid shape rather than erroring, so the site keeps working if
- * the database is missing or a migration has not run yet.
+ * API configuration failures return an error so the client cannot mistake a
+ * failed write for success. The static site remains available independently.
  */
 import {
   allowedTurnstileHostnames,
@@ -19,11 +18,10 @@ import {
   likeVisitor,
   notifyTelegram,
   pageTitleFromHtml,
-  rateLimitScope,
+  rateLimitVisitor,
   telegramCommentText,
   telegramLikeText,
   verifyTurnstile,
-  visitorId,
 } from "./lib"
 
 /** Anything larger is refused before it is parsed. */
@@ -31,6 +29,15 @@ const MAX_BODY_BYTES = 16 * 1024
 const MAX_NAME = 60
 const MAX_BODY = 2000
 const MAX_LINKS = 2
+
+// Both reads and writes use the same definition of a publicly reachable thread.
+// Bind the page slug twice before any parameters belonging to the query itself.
+const VISIBLE_COMMENTS = `WITH RECURSIVE visible(id) AS (
+  SELECT id FROM comments WHERE slug = ? AND parent_id IS NULL AND status = 'visible'
+  UNION ALL
+  SELECT c.id FROM comments c JOIN visible v ON c.parent_id = v.id
+   WHERE c.slug = ? AND c.status = 'visible'
+)`
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -176,16 +183,12 @@ async function route(
   const method = request.method
 
   if (!env.DB) {
-    // No database bound yet: report empty rather than failing the page.
-    if (pathname === "/api/likes")
-      return json({ slug: url.searchParams.get("slug"), count: 0, liked: false })
-    if (pathname === "/api/comments") return json({ comments: [] })
     return bad("API not configured", 503)
   }
 
   if (pathname === "/api/likes" && method === "GET") return getLikes(request, env, url)
   if (pathname === "/api/likes" && method === "POST") return toggleLike(request, env, ctx)
-  if (pathname === "/api/comments" && method === "GET") return getComments(env, url)
+  if (pathname === "/api/comments" && method === "GET") return getComments(request, env, url)
   if (pathname === "/api/comments" && method === "POST") return postComment(request, env, ctx)
   if (pathname === "/api/comments" && method === "DELETE") return deleteComment(request, env)
   if (pathname === "/api/moderate" && method === "GET") return moderationPage(request, env, url)
@@ -199,26 +202,22 @@ async function route(
 async function getLikes(request: Request, env: Env, url: URL): Promise<Response> {
   const slug = url.searchParams.get("slug")
   if (!isValidSlug(slug)) return bad("Invalid slug")
+  if (!(await publishedPageTitle(env, request, slug))) return bad("Unknown page", 404)
 
   const identity = await likeVisitor(request, env.VISITOR_SALT, false)
   const visitors = [...new Set([identity.current, identity.legacy].filter(Boolean))] as string[]
   const placeholders = visitors.map(() => "?").join(", ")
   const [row, vote] = await Promise.all([
-    env.DB.prepare("SELECT count FROM likes WHERE slug = ?").bind(slug).first<{ count: number }>(),
+    env.DB.prepare("SELECT COUNT(*) AS count FROM like_votes WHERE slug = ?")
+      .bind(slug)
+      .first<{ count: number }>(),
     env.DB.prepare(`SELECT 1 AS v FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`)
       .bind(slug, ...visitors)
       .first(),
   ])
 
-  /*
-   * `private`, NOT `public`. The response carries `liked`, which is derived
-   * from this visitor's own hash — a shared cache serving it to someone else
-   * would show them a like they never made. `private` lets the visitor's own
-   * browser cache it while forbidding every shared cache from doing so.
-   */
-  return json({ slug, count: row?.count ?? 0, liked: Boolean(vote) }, 200, {
-    "cache-control": "private, max-age=30",
-  })
+  // A read immediately after a write must reflect current cookie/vote state.
+  return json({ slug, count: row?.count ?? 0, liked: Boolean(vote) })
 }
 
 async function toggleLike(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -230,60 +229,69 @@ async function toggleLike(request: Request, env: Env, ctx: ExecutionContext): Pr
   const pageTitle = await publishedPageTitle(env, request, slug)
   if (!pageTitle) return bad("Unknown page", 404)
 
-  const identity = await likeVisitor(request, env.VISITOR_SALT, true)
-  if (!identity.current) throw new Error("Like identity was not created")
-  const visitors = [...new Set([identity.current, identity.legacy])]
-  const placeholders = visitors.map(() => "?").join(", ")
-  const rateVisitor = await visitorId(request, env.VISITOR_SALT, rateLimitScope("like"))
+  if (body.liked !== undefined && typeof body.liked !== "boolean") return bad("Invalid like state")
+  const rateVisitor = await rateLimitVisitor(request, env.VISITOR_SALT, "like")
   if (await isRateLimited(env.DB, rateVisitor, "like", 60, 60_000)) {
     return bad("Slow down", 429)
   }
 
-  const existing = await env.DB.prepare(
-    `SELECT COUNT(*) AS count FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`,
-  )
-    .bind(slug, ...visitors)
-    .first<{ count: number }>()
-  const existingCount = existing?.count ?? 0
-
+  const identity = await likeVisitor(request, env.VISITOR_SALT, true)
+  if (!identity.current) throw new Error("Like identity was not created")
+  const visitors = [...new Set([identity.current, identity.legacy])]
+  const placeholders = visitors.map(() => "?").join(", ")
+  // Older already-open pages send a toggle. New clients send the desired state
+  // so duplicate requests are idempotent. Both paths keep counts authoritative.
+  const existing =
+    body.liked === undefined
+      ? await env.DB.prepare(
+          `SELECT 1 FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`,
+        )
+          .bind(slug, ...visitors)
+          .first()
+      : null
+  const desired = body.liked === undefined ? !existing : body.liked
   const now = Date.now()
-  if (existingCount > 0) {
-    await env.DB.batch([
-      env.DB.prepare(`DELETE FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`).bind(
-        slug,
-        ...visitors,
-      ),
-      env.DB.prepare(
-        "UPDATE likes SET count = MAX(0, count - ?), updated_at = ? WHERE slug = ?",
-      ).bind(existingCount, now, slug),
-    ])
-  } else {
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO like_votes (slug, visitor, created_at) VALUES (?, ?, ?)").bind(
-        slug,
-        identity.current,
-        now,
-      ),
-      // Atomic upsert: concurrent likes cannot lose an increment.
-      env.DB.prepare(
-        `INSERT INTO likes (slug, count, updated_at) VALUES (?, 1, ?)
-         ON CONFLICT(slug) DO UPDATE SET count = count + 1, updated_at = excluded.updated_at`,
-      ).bind(slug, now),
-    ])
-  }
+  const mutations = desired
+    ? [
+        // Migrate an old IP-based vote to the returning browser's signed cookie.
+        env.DB.prepare(
+          "UPDATE OR IGNORE like_votes SET visitor = ? WHERE slug = ? AND visitor = ?",
+        ).bind(identity.current, slug, identity.legacy),
+        env.DB.prepare(
+          "DELETE FROM like_votes WHERE slug = ? AND visitor = ? AND visitor != ?",
+        ).bind(slug, identity.legacy, identity.current),
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO like_votes (slug, visitor, created_at) VALUES (?, ?, ?)",
+        ).bind(slug, identity.current, now),
+      ]
+    : [
+        env.DB.prepare(
+          `DELETE FROM like_votes WHERE slug = ? AND visitor IN (${placeholders})`,
+        ).bind(slug, ...visitors),
+      ]
 
-  const row = await env.DB.prepare("SELECT count FROM likes WHERE slug = ?")
-    .bind(slug)
-    .first<{ count: number }>()
-  const count = row?.count ?? 0
-  const liked = existingCount === 0
-  if (liked) {
+  const results = await env.DB.batch([
+    ...mutations,
+    env.DB.prepare(
+      `INSERT INTO likes (slug, count, updated_at)
+      VALUES (?, (SELECT COUNT(*) FROM like_votes WHERE slug = ?), ?)
+      ON CONFLICT(slug) DO UPDATE SET count = excluded.count, updated_at = excluded.updated_at`,
+    ).bind(slug, slug, now),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS count,
+      COALESCE(MAX(CASE WHEN visitor = ? THEN 1 ELSE 0 END), 0) AS liked
+      FROM like_votes WHERE slug = ?`,
+    ).bind(identity.current, slug),
+  ])
+  const state = results.at(-1)!.results[0] as { count: number; liked: number }
+  // Only an actual insert sends an alert; retries and legacy migration are silent.
+  if (desired && results[mutations.length - 1].meta.changes > 0) {
     ctx.waitUntil(
-      notifyTelegram(env, telegramLikeText(pageTitle, count, `https://mandulaj.hu/${slug}`)),
+      notifyTelegram(env, telegramLikeText(pageTitle, state.count, `https://mandulaj.hu/${slug}`)),
     )
   }
   return json(
-    { slug, count, liked },
+    { slug, count: state.count, liked: Boolean(state.liked) },
     200,
     identity.setCookie ? { "set-cookie": identity.setCookie } : {},
   )
@@ -305,23 +313,23 @@ interface ModerationRow extends CommentRow {
   status: string
 }
 
-async function getComments(env: Env, url: URL): Promise<Response> {
+async function getComments(request: Request, env: Env, url: URL): Promise<Response> {
   const slug = url.searchParams.get("slug")
   if (!isValidSlug(slug)) return bad("Invalid slug")
+  if (!(await publishedPageTitle(env, request, slug))) return bad("Unknown page", 404)
 
   const { results } = await env.DB.prepare(
-    `SELECT id, parent_id, name, body, is_owner, created_at
-         FROM comments
-        WHERE slug = ? AND status = 'visible'
-        ORDER BY created_at ASC
-        LIMIT 500`,
+    `${VISIBLE_COMMENTS}
+     SELECT c.id, c.parent_id, c.name, c.body, c.is_owner, c.created_at
+       FROM comments c JOIN visible v ON c.id = v.id
+      ORDER BY c.created_at ASC, c.id ASC
+      LIMIT 500`,
   )
-    .bind(slug)
+    .bind(slug, slug)
     .all<CommentRow>()
 
-  // No visitor-specific fields here, so a shared cache is fine — but a deleted
-  // comment should disappear quickly, so keep the window short.
-  return json({ comments: results ?? [] }, 200, { "cache-control": "public, max-age=10" })
+  // Mutations must be visible immediately, including on an already-open page.
+  return json({ comments: results ?? [] })
 }
 
 async function postComment(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -352,9 +360,9 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
 
   if (parentId) {
     const parent = await env.DB.prepare(
-      "SELECT 1 AS found FROM comments WHERE id = ? AND slug = ? AND status = 'visible'",
+      `${VISIBLE_COMMENTS} SELECT 1 AS found FROM visible WHERE id = ?`,
     )
-      .bind(parentId, slug)
+      .bind(slug, slug, parentId)
       .first()
     if (!parent) return bad("Parent comment was not found")
   }
@@ -378,7 +386,7 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
     return bad("Verification failed — reload and try again", 403)
   }
 
-  const visitor = await visitorId(request, env.VISITOR_SALT, rateLimitScope("comment"))
+  const visitor = await rateLimitVisitor(request, env.VISITOR_SALT, "comment")
   if (await isRateLimited(env.DB, visitor, "comment", 5, 600_000)) {
     return bad("You have posted a few already — try again shortly", 429)
   }
@@ -388,13 +396,30 @@ async function postComment(request: Request, env: Env, ctx: ExecutionContext): P
   const moderationToken = crypto.randomUUID()
   const now = Date.now()
 
-  await env.DB.prepare(
-    `INSERT INTO comments
+  const inserted = await env.DB.prepare(
+    `${VISIBLE_COMMENTS} INSERT INTO comments
        (id, slug, parent_id, name, email, body, status, is_owner, edit_token, moderation_token, visitor, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'visible', 0, ?, ?, NULL, ?)`,
+       SELECT ?, ?, ?, ?, ?, ?, 'visible', 0, ?, ?, NULL, ?
+       WHERE ? IS NULL OR EXISTS (SELECT 1 FROM visible WHERE id = ?)`,
   )
-    .bind(id, slug, parentId, name, email, text, editToken, moderationToken, now)
+    .bind(
+      slug,
+      slug,
+      id,
+      slug,
+      parentId,
+      name,
+      email,
+      text,
+      editToken,
+      moderationToken,
+      now,
+      parentId,
+      parentId,
+    )
     .run()
+  if (!inserted.meta.changes)
+    return bad("This thread was removed — post a new comment instead", 409)
 
   // Post-moderation: it is live now, you hear about it immediately.
   ctx.waitUntil(
@@ -428,7 +453,11 @@ async function deleteComment(request: Request, env: Env): Promise<Response> {
   if (!id || !token) return bad("Missing id or token")
 
   const res = await env.DB.prepare(
-    "UPDATE comments SET status = 'hidden' WHERE id = ? AND edit_token = ?",
+    `WITH RECURSIVE thread(id) AS (
+       SELECT id FROM comments WHERE id = ? AND edit_token = ?
+       UNION ALL
+       SELECT c.id FROM comments c JOIN thread t ON c.parent_id = t.id
+     ) UPDATE comments SET status = 'hidden' WHERE id IN (SELECT id FROM thread)`,
   )
     .bind(id, token)
     .run()
@@ -640,13 +669,15 @@ async function moderateComment(request: Request, env: Env): Promise<Response> {
     const links = (reply.match(/https?:\/\//g) ?? []).length
     if (links > MAX_LINKS) return bad("Too many links")
 
-    await env.DB.prepare(
-      `INSERT INTO comments
+    const inserted = await env.DB.prepare(
+      `${VISIBLE_COMMENTS} INSERT INTO comments
        (id, slug, parent_id, name, body, status, is_owner, edit_token, moderation_token, visitor, created_at)
-       VALUES (?, ?, ?, 'József Mandula', ?, 'visible', 1, NULL, NULL, NULL, ?)`,
+       SELECT ?, ?, ?, 'József Mandula', ?, 'visible', 1, NULL, NULL, NULL, ?
+       WHERE EXISTS (SELECT 1 FROM visible WHERE id = ?)`,
     )
-      .bind(crypto.randomUUID(), row.slug, row.id, reply, Date.now())
+      .bind(row.slug, row.slug, crypto.randomUUID(), row.slug, row.id, reply, Date.now(), row.id)
       .run()
+    if (!inserted.meta.changes) return bad("Cannot reply to a removed thread", 409)
     return new Response(null, {
       status: 303,
       headers: { location: `${env.SITE_ORIGIN}/api/moderate?token=${token}&done=reply` },

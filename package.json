@@ -37,7 +37,7 @@
     "og": "tsx scripts/og.ts",
     "webmentions": "tsx scripts/webmentions.ts",
     "webmentions:send": "tsx scripts/webmention-send.ts",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run verify && wrangler deploy",
     "worker:dev": "wrangler dev --local --port 8799",
     "db:migrate:local": "wrangler d1 migrations apply mandulaj --local",
     "db:migrate": "wrangler d1 migrations apply mandulaj --remote",
@@ -48,7 +48,9 @@
     "worker:types:check": "npm run worker:types -- --check",
     "typecheck": "npm run worker:types:check && tsc --noEmit --incremental false -p tsconfig.json && tsc --noEmit --incremental false -p tsconfig.project.json && tsc --noEmit --incremental false -p worker/tsconfig.json",
     "test:project": "tsx --test scripts/*.test.ts worker/api.test.ts",
-    "privacy": "tsx scripts/privacy.ts"
+    "privacy": "tsx scripts/privacy.ts",
+    "verify:built": "node scripts/verify-built.mjs",
+    "verify": "npm run check && npm test && npm run build && npm run verify:built && npm audit --audit-level=moderate"
   },
   "engines": {
     "npm": ">=10.9.2",
@@ -158,6 +160,7 @@
     "@types/ws": "^8.18.1",
     "@types/yargs": "^17.0.35",
     "esbuild": "^0.28.2",
+    "jsdom": "^30.0.1",
     "pagefind": "^1.5.2",
     "prettier": "^3.8.1",
     "satori": "^0.33.3",
@@ -166,5 +169,8 @@
     "vitest": "^4.1.11",
     "wawoff2": "^2.0.1",
     "wrangler": "^4.125.0"
+  },
+  "overrides": {
+    "fflate": "^0.7.5"
   }
 }

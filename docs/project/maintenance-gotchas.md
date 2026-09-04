@@ -381,7 +381,7 @@ worker/index.ts    the API; /api/* invokes it, everything else is a static asset
 Things that will quietly break the guarantee if changed without care:
 
 - `content/` is **generated**. The audit hashes it. Editing it by hand fails the build.
-- `isPublished()` accepts only literal `true`. Loosening it makes typos publish.
+- `isPublished()` accepts boolean `true` or text `"true"` for publish. A draft flag must be absent, null, boolean `false`, or text `"false"`; any other value blocks publishing.
 - The output audit must never need the vault — CI doesn't have one.
 - Every gate runs before `git push` in `scripts/publish.ts`. Don't reorder.
 - Analytics and webmentions must stay optional. An unset env var is a

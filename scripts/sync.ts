@@ -33,6 +33,7 @@ import {
   isMedia,
   isMoc,
   isPublished,
+  localLinkTarget,
   parseWikilinks,
   slugify,
   splitFrontmatter,
@@ -422,7 +423,7 @@ async function main() {
       ) {
         return raw
       }
-      const target = decodeURIComponent(rawTarget)
+      const { target, suffix } = localLinkTarget(rawTarget)
       const resolved = resolve(target, n.abs)
       if (resolved && isMedia(resolved)) {
         const destName = attachmentName(resolved, vault)
@@ -430,10 +431,10 @@ async function main() {
           errors.push(`Attachment destination collision: ${destName}`)
         }
         if (!noteAttachments.includes(destName)) noteAttachments.push(destName)
-        return `${bang}[${text}](${config.attachmentsSubdir}/${encodeURIComponent(destName)})`
+        return `${bang}[${text}](${config.attachmentsSubdir}/${encodeURIComponent(destName)}${suffix})`
       }
       if (resolved && publishedAbs.has(resolved)) {
-        return `${bang}[${text}](${slugOf.get(resolved)!})`
+        return `${bang}[${text}](${slugOf.get(resolved)!}${suffix})`
       }
       if (config.stripUnpublishedLinks && !bang) {
         strippedLinks++

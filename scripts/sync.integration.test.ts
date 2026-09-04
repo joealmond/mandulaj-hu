@@ -111,3 +111,38 @@ test("sync publishes only flagged notes, and nothing else leaks", () => {
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
+
+test("sync excludes text drafts and preserves published Markdown fragments", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "publish-fragments-"))
+  const vault = path.join(root, "vault")
+  const artifacts = path.join(root, "artifacts")
+  fs.mkdirSync(vault)
+  try {
+    fs.writeFileSync(
+      path.join(vault, "Draft.md"),
+      '---\npublish: true\ndraft: "true"\n---\nPRIVATE-DRAFT\n',
+    )
+    fs.writeFileSync(
+      path.join(vault, "Target.md"),
+      "---\npublish: true\n---\n## Detail\nTarget body.\n",
+    )
+    fs.writeFileSync(path.join(vault, "Guide.pdf"), "PDF-FIXTURE")
+    fs.writeFileSync(
+      path.join(vault, "Links.md"),
+      "---\npublish: true\n---\n[details](Target.md#Detail)\n[guide](Guide.pdf#page=2)\n",
+    )
+    execFileSync(process.execPath, ["--import", "tsx", "scripts/sync.ts"], {
+      cwd: REPO,
+      encoding: "utf8",
+      env: { ...process.env, VAULT_PATH: vault, PUBLISH_ARTIFACT_ROOT: artifacts },
+    })
+    assert.equal(fs.existsSync(path.join(artifacts, "content/draft.md")), false)
+    const manifest = fs.readFileSync(path.join(artifacts, ".publish-manifest.json"), "utf8")
+    assert.ok(!manifest.includes('"draft"'))
+    const links = fs.readFileSync(path.join(artifacts, "content/links.md"), "utf8")
+    assert.match(links, /\[details\]\(target#Detail\)/)
+    assert.match(links, /\[guide\]\(attachments\/Guide-[a-f0-9]+\.pdf#page=2\)/)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})

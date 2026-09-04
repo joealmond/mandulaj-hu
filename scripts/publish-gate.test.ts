@@ -122,3 +122,12 @@ test("media detection covers what sync will copy", () => {
     assert.equal(isMedia(no), false, no)
   }
 })
+
+test("draft text properties and ambiguous draft values never publish", () => {
+  for (const draft of [true, "true", "True", "yes", 1, [], {}, ""]) {
+    assert.equal(isPublished({ publish: true, draft }), false, JSON.stringify(draft))
+  }
+  for (const draft of [undefined, null, false, "false"]) {
+    assert.equal(isPublished({ publish: "true", draft }), true, JSON.stringify(draft))
+  }
+})

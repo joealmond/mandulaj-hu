@@ -37,5 +37,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Audit checked-in public content
-        run: npm run audit
+      - name: Build and verify the deployable artifact
+        run: npm run build && npm run verify:built
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate

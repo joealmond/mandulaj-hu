@@ -14,8 +14,8 @@ import type { QuartzComponent, QuartzComponentConstructor } from "@quartz-commun
  * Nothing covers the page. Tags are navigation, so they live in their own pane
  * of the rail and appear here only as matches above the note results.
  *
- * Mobile is the exception and keeps a sheet, because there is no rail to type
- * into — the same component, promoted to full screen by CSS.
+ * On mobile the results stay below the field in document flow, so search and
+ * clear remain reachable by touch even when there are no matches.
  */
 const PagefindSearch: QuartzComponentConstructor = () => {
   const Component: QuartzComponent = () => (
@@ -119,7 +119,7 @@ const PagefindSearch: QuartzComponentConstructor = () => {
 .pf-list > li { margin-bottom: .7rem; }
 .pf-list a { display: block; text-decoration: none; color: var(--gray); }
 .pf-list a:hover, .pf-list a:focus-visible,
-.pf-list li[aria-selected="true"] a { color: var(--dark); outline: none; }
+.pf-list li[data-active="true"] a { color: var(--dark); outline: none; }
 .pf-title {
   font-family: var(--bodyFont); font-size: .82rem; font-weight: 500;
   line-height: 1.28; color: var(--dark); margin: 0 0 .15rem;
@@ -131,23 +131,23 @@ const PagefindSearch: QuartzComponentConstructor = () => {
 }
 .pf-excerpt mark { background: var(--accent-wash); color: var(--dark); font-weight: 600; }
 
-/* ── Mobile: no rail to type into, so results become a sheet ───────────── */
+/* On narrow screens keep results below their controls, never over them. */
 @media all and (max-width: 800px) {
-  body[data-searching="true"] .pf-results {
-    position: fixed; inset: 3.5rem 0 0; z-index: 80;
-    background: var(--light); overflow-y: auto;
-    padding: 1rem; margin: 0;
-    border-top: 1px solid var(--lightgray);
-  }
+  .pf-results { margin-top: .75rem; }
   .pf-key { display: none; }
+  .pf-clear { min-width: 32px; min-height: 32px; }
 }
+
 `
 
   Component.afterDOMLoaded = `
 (() => {
+  function wireSearch() {
   const root = document.querySelector(".pf");
   if (!root || root.dataset.wired) return;
   root.dataset.wired = "1";
+  const listeners = new AbortController();
+  const signal = listeners.signal;
 
   const input   = root.querySelector(".pf-input");
   const clear   = root.querySelector(".pf-clear");
@@ -159,6 +159,7 @@ const PagefindSearch: QuartzComponentConstructor = () => {
   const list    = root.querySelector(".pf-list");
 
   let pagefind = null;
+  let loading = null;
   let allTags = {};
   let token = 0;
   let cursor = -1;
@@ -167,13 +168,17 @@ const PagefindSearch: QuartzComponentConstructor = () => {
   // a reader who never searches.
   async function ensure() {
     if (pagefind) return pagefind;
-    try {
-      pagefind = await import(/* webpackIgnore: true */ "/pagefind/pagefind.js");
-      await pagefind.options({ excerptLength: 18 });
-      try { allTags = (await pagefind.filters()).tag || {}; } catch (e) { allTags = {}; }
-      return pagefind;
-    } catch (e) {
-      status.textContent = "Search index unavailable";
+    if (!loading) loading = (async () => {
+      const pf = await import(/* webpackIgnore: true */ "/pagefind/pagefind.js");
+      await pf.options({ excerptLength: 18 });
+      allTags = (await pf.filters()).tag || {};
+      pagefind = pf;
+      return pf;
+    })();
+    try { return await loading; }
+    catch (e) {
+      loading = null;
+      if (!signal.aborted) status.textContent = "Search index unavailable — try again.";
       return null;
     }
   }
@@ -183,7 +188,7 @@ const PagefindSearch: QuartzComponentConstructor = () => {
     results.hidden = !on;
     clear.hidden = !on;
     key.hidden = on;
-    if (!on) { list.textContent = ""; tagsBox.hidden = true; status.textContent = ""; cursor = -1; }
+    if (!on) { ++token; clearTimeout(timer); list.textContent = ""; tagsBox.hidden = true; status.textContent = ""; cursor = -1; }
   }
 
   function paintTags(q) {
@@ -217,7 +222,6 @@ const PagefindSearch: QuartzComponentConstructor = () => {
     status.textContent = items.length + (items.length === 1 ? " result" : " results");
     for (const r of items) {
       const li = document.createElement("li");
-      li.setAttribute("role", "option");
       const a = document.createElement("a");
       a.href = r.url.replace(/\\.html$/, "");
       const h = document.createElement("p");
@@ -239,35 +243,43 @@ const PagefindSearch: QuartzComponentConstructor = () => {
 
     setSearching(true);
     const pf = await ensure();
-    if (!pf) return;
-    paintTags(q);
-    status.textContent = "Searching";
-    const search = await pf.search(q);
-    if (mine !== token) return;
-    const data = await Promise.all(search.results.slice(0, 12).map((r) => r.data()));
-    if (mine !== token) return;
-    paint(data, q);
+    if (!pf || mine !== token) return;
+    try {
+      paintTags(q);
+      status.textContent = "Searching";
+      const search = await pf.search(q);
+      if (mine !== token) return;
+      const data = await Promise.all(search.results.slice(0, 12).map((r) => r.data()));
+      if (mine !== token) return;
+      paint(data, q);
+    } catch (e) {
+      if (mine === token) status.textContent = "Search unavailable — try again.";
+    }
   }
 
   let timer;
   input.addEventListener("input", () => {
     clearTimeout(timer);
+    ++token;
+    list.textContent = ""; cursor = -1; tagsBox.hidden = true;
+    setSearching(Boolean(input.value.trim()));
+    if (input.value.trim()) status.textContent = "Searching";
     timer = setTimeout(run, 120);
-  });
-  input.addEventListener("focus", ensure, { once: true });
+  }, { signal });
+  input.addEventListener("focus", ensure, { signal });
 
   clear.addEventListener("click", () => {
     input.value = "";
     setSearching(false);
     input.focus();
-  });
+  }, { signal });
 
   function move(delta) {
     const items = [...list.querySelectorAll("li")];
     if (!items.length) return;
-    if (cursor >= 0) items[cursor].removeAttribute("aria-selected");
+    if (cursor >= 0) items[cursor].removeAttribute("data-active");
     cursor = (cursor + delta + items.length) % items.length;
-    items[cursor].setAttribute("aria-selected", "true");
+    items[cursor].setAttribute("data-active", "true");
     items[cursor].scrollIntoView({ block: "nearest" });
   }
 
@@ -280,9 +292,15 @@ const PagefindSearch: QuartzComponentConstructor = () => {
     else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
     else if (e.key === "Enter" && cursor >= 0) {
       const a = list.querySelectorAll("li")[cursor].querySelector("a");
-      if (a) window.location.assign(a.href);
+      if (a) { e.preventDefault(); window.location.assign(a.href); }
     }
+  }, { signal });
+  window.addCleanup?.(() => {
+    setSearching(false); input.value = ""; listeners.abort(); delete root.dataset.wired;
   });
+  }
+  document.addEventListener("nav", wireSearch);
+  wireSearch();
 })();
 `
   return Component

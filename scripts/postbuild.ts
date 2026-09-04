@@ -19,7 +19,7 @@ import "./env.js"
 import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
 import path from "node:path"
-import { c } from "./lib.js"
+import { c, walk } from "./lib.js"
 import { normaliseArticleHeadings } from "./postbuild-utils.js"
 
 const REPO = path.resolve(import.meta.dirname, "..")
@@ -64,12 +64,19 @@ async function filterFeed(baseUrl: string) {
  */
 async function copyHeaders() {
   const src = path.join(REPO, "quartz-custom", "pages", "_headers")
-  try {
-    await fs.copyFile(src, path.join(PUBLIC, "_headers"))
-    console.log(c.dim("  _headers → copied"))
-  } catch {
-    console.warn(c.yellow("  _headers missing — assets will use default caching"))
-  }
+  const base = await fs.readFile(src, "utf8")
+  const hashed = (await walk(PUBLIC))
+    .map((file) => path.relative(PUBLIC, file).split(path.sep).join("/"))
+    .filter((file) => !file.startsWith("pagefind/") && /-[a-f0-9]{8,}\.(js|css|woff2?)$/.test(file))
+    .sort()
+  // Cloudflare allows 100 rules. Never silently drop security/cache policy.
+  if (hashed.length + 2 > 100)
+    throw new Error("Too many immutable asset rules; move hashed assets into a dedicated directory")
+  const rules = hashed.map(
+    (file) => `/${file}\n  Cache-Control: public, max-age=31536000, immutable\n`,
+  )
+  await fs.writeFile(path.join(PUBLIC, "_headers"), base + "\n" + rules.join("\n"))
+  console.log(c.dim(`  _headers → ${hashed.length} immutable assets; other URLs revalidate`))
 }
 
 async function writeRobots(baseUrl: string) {
@@ -254,7 +261,9 @@ async function addFeedDiscovery(baseUrl: string, turnstileKey: string) {
           html = html.replace("</head>", `${tag}</head>`)
         }
         html = fixHeadingOrder(html)
-        html = normaliseArticleHeadings(html)
+        // The error page's own title is its only H1; there is no header H1 above it.
+        if (/<h1 class="article-title(?: [^"]*)?">/.test(html))
+          html = normaliseArticleHeadings(html)
         html = dropUnusedPreconnect(html)
         html = injectTurnstileKey(html, turnstileKey)
         html = markLongTitles(html)
