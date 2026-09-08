@@ -1,5 +1,9 @@
 # Project TODO
 
+## Arkstead author entry
+
+- [ ] Validate and deploy the private Author login link without changing the existing publishing boundary — [details](arkstead-authoring.md).
+
 Everything still open, grouped by what blocks what. Finished work is described
 in the [architecture decisions](architecture-decisions.md); a few items here are struck through because they were
 decided and implemented after this file was first written.

@@ -106,6 +106,14 @@ const Panel: QuartzComponentConstructor = () => {
 
     return (
       <nav class="pn" aria-label="Site navigation">
+        <a
+          class="arkstead-author-link"
+          href="https://arkstead-oci.tailcf089f.ts.net/#writing"
+          rel="noreferrer"
+          title="Private author dashboard — connect Tailscale first"
+        >
+          Author login ↗
+        </a>
         <div class="pn-tabs" role="tablist">
           <button class="pn-tab" data-pane="recent" role="tab">
             Recent
@@ -191,6 +199,8 @@ const Panel: QuartzComponentConstructor = () => {
 
   Component.css = `
 .pn { display: flex; flex-direction: column; gap: .75rem; }
+.arkstead-author-link { display: flex; align-items: center; min-height: 44px; padding: .35rem .5rem; border: 1px solid var(--lightgray); color: var(--dark); font-size: .9rem; text-decoration: none; }
+.arkstead-author-link:hover { border-color: var(--accent); color: var(--accent); }
 .pn-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--lightgray); }
 .pn-tab {
   flex: 1; background: none; border: 0; cursor: pointer;
